@@ -123,9 +123,6 @@
     <ClCompile Include="utils\vpc\projectgenerator_makefile.cpp">
       <Filter>Source Files\vpc</Filter>
     </ClCompile>
-    <ClCompile Include="utils\vpc\projectgenerator_ps3.cpp">
-      <Filter>Source Files\vpc</Filter>
-    </ClCompile>
     <ClCompile Include="utils\vpc\projectgenerator_vcproj.cpp">
       <Filter>Source Files\vpc</Filter>
     </ClCompile>
@@ -133,12 +130,6 @@
       <Filter>Source Files\vpc</Filter>
     </ClCompile>
     <ClCompile Include="utils\vpc\projectgenerator_win32_2010.cpp">
-      <Filter>Source Files\vpc</Filter>
-    </ClCompile>
-    <ClCompile Include="utils\vpc\projectgenerator_xbox360.cpp">
-      <Filter>Source Files\vpc</Filter>
-    </ClCompile>
-    <ClCompile Include="utils\vpc\projectgenerator_xbox360_2010.cpp">
       <Filter>Source Files\vpc</Filter>
     </ClCompile>
     <ClCompile Include="utils\vpc\projectscript.cpp">
@@ -154,9 +145,6 @@
       <Filter>Source Files\vpc</Filter>
     </ClCompile>
     <ClCompile Include="utils\vpc\solutiongenerator_win32.cpp">
-      <Filter>Source Files\vpc</Filter>
-    </ClCompile>
-    <ClCompile Include="utils\vpc\solutiongenerator_xcode.cpp">
       <Filter>Source Files\vpc</Filter>
     </ClCompile>
     <ClCompile Include="utils\vpc\sys_utils.cpp">

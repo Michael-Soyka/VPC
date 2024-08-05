@@ -39,7 +39,7 @@ bool IsTwoPhaseVpc(int argc, char **argv) noexcept {
 
 // main
 // VPC is a DLL in Source.
-#if defined(STANDALONE_VPC) || defined(OSX) || defined(LINUX)
+#if defined(STANDALONE_VPC) || defined(LINUX)
 /**
  * @brief Main entry point.
  */
@@ -191,7 +191,7 @@ int vpcmain(int argc, char **argv)
 }
 
 // VPC is a DLL in Source.
-#if !(defined(STANDALONE_VPC) || defined(OSX) || defined(LINUX))
+#if !(defined(STANDALONE_VPC) || defined(LINUX))
 #include "ilaunchabledll.h"
 #include "tier1/interface.h"
 

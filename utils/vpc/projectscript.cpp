@@ -121,15 +121,10 @@ static char *ResolveCandidate(const char *pszFile, const char *pszPlatform) {
 // arrPlatformChains matrix
 const char *g_szArrPlatforms[] = {"win32",    //  0
                                   "win64",    //  1
-                                  "osx32",    //  2
-                                  "osx64",    //  3
                                   "linux32",  //  4
                                   "linux64",  //  5
                                   "cygwin",   //  6
-                                  "ps3",      //  7
-                                  "x360",     //  8
                                   "win",      //  9
-                                  "osx",      // 10
                                   "linux",    // 11
                                   "posix",    // 12
                                   "any",      // 13
@@ -1467,6 +1462,10 @@ void VPC_PrepareToReadScript(const char *pInputScriptName, int depth,
 
   V_strncpy(szScriptName, pInputScriptName, MAX_PATH);
   V_FixSlashes(szScriptName);
+
+    #ifdef _WIN32
+        g_pVPC->UpdateVPCConsoleTitle("Parsing: %s", szScriptName);
+    #endif
 
   // always spew the root script
   if (!bQuiet) {

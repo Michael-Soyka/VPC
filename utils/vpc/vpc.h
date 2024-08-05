@@ -166,6 +166,7 @@ class CVPC {
   // BUGBUG: There is probably some actual cleanup to be done here.
   ~CVPC() noexcept = default;
 
+  void UpdateVPCConsoleTitle( PRINTF_FORMAT_STRING const char *format, ... );
   bool Init(int argc, const char **argv);
   void Shutdown(bool bHasError = false);
 

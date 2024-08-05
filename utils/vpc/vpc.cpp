@@ -6,7 +6,7 @@
 #include "dependencies.h"
 
 #if !defined(NO_PERFORCE)
-#include "p4sln.h"
+    #include "p4sln.h"
 #endif
 
 #include "ilaunchabledll.h"
@@ -14,8 +14,8 @@
 #include <algorithm>
 
 #ifdef _WIN32
-#include <process.h>
-#include "winlite.h"
+    #include <process.h>
+    #include "winlite.h"
 #endif
 
 #include "tier0/memdbgon.h"
@@ -38,130 +38,154 @@ const char *g_pOption_PreprocessorDefinitions = "$PreprocessorDefinitions";
 const char *g_IncludeSeparators[2] = {";", ","};
 
 #ifdef POSIX
-#define _unlink unlink
-#define _stat stat
+    #define _unlink unlink
+    #define _stat stat
 #endif
 
 CVPC::CVPC() {
-  m_pP4Module = nullptr;
-  m_pFilesystemModule = nullptr;
+    m_pP4Module = nullptr;
+    m_pFilesystemModule = nullptr;
 
-  m_nArgc = 0;
-  m_ppArgv = nullptr;
+    m_nArgc = 0;
+    m_ppArgv = nullptr;
 
-  m_bVerbose = false;
-  m_bQuiet = false;
-  m_bUsageOnly = false;
-  m_bHelp = false;
-  m_bSpewPlatforms = false;
-  m_bSpewGames = false;
-  m_bSpewGroups = false;
-  m_bSpewProjects = false;
-  m_bIgnoreRedundancyWarning = false;
-  m_bSpewProperties = false;
-  m_bTestMode = false;
-  m_bGeneratedProject = false;
-  m_bAnyProjectQualified = false;
-  m_bForceGenerate = false;
-  m_bNoPosixPCH = false;
-  m_bEnableVpcGameMacro = true;
-  m_bDecorateProject = false;
-  m_bShowDeps = false;
-  m_bP4AutoAdd = false;
-  m_bP4SlnCheckEverything = false;
-  m_bDedicatedBuild = false;
-  m_bAppendSrvToDedicated = false;
-  m_bUseValveBinDir = false;
-  m_bInMkSlnPass = false;
-  m_bShowCaseIssues = false;
-  m_bVerboseMakefile = false;
-  m_bP4SCC = false;
-  m_b32BitTools = false;
+    m_bVerbose = false;
+    m_bQuiet = false;
+    m_bUsageOnly = false;
+    m_bHelp = false;
+    m_bSpewPlatforms = false;
+    m_bSpewGames = false;
+    m_bSpewGroups = false;
+    m_bSpewProjects = false;
+    m_bIgnoreRedundancyWarning = false;
+    m_bSpewProperties = false;
+    m_bTestMode = false;
+    m_bGeneratedProject = false;
+    m_bAnyProjectQualified = false;
+    m_bForceGenerate = false;
+    m_bNoPosixPCH = false;
+    m_bEnableVpcGameMacro = true;
+    m_bDecorateProject = false;
+    m_bShowDeps = false;
+    m_bP4AutoAdd = false;
+    m_bP4SlnCheckEverything = false;
+    m_bDedicatedBuild = false;
+    m_bAppendSrvToDedicated = false;
+    m_bUseValveBinDir = false;
+    m_bInMkSlnPass = false;
+    m_bShowCaseIssues = false;
+    m_bVerboseMakefile = false;
+    m_bP4SCC = false;
+    m_b32BitTools = false;
 
-#ifdef VPC_SCC_INTEGRATION
-  m_bP4SCC = true;
-#endif
-  if (getenv("VPC_SRCCTL") != nullptr) {
-    m_bP4SCC = V_atoi(getenv("VPC_SRCCTL")) != 0;
-  }
+    #ifdef VPC_SCC_INTEGRATION
+        m_bP4SCC = true;
+    #endif
 
-#ifdef WIN32
-  m_eVSVersion = k_EVSVersion_2022;
-  m_bUseVS2010FileFormat = true;
-  m_bUseUnity = false;
-#else
-  m_eVSVersion = k_EVSVersion_Invalid;
-  m_bUseVS2010FileFormat = false;
-  m_bUseUnity = false;
-#endif
+    if ( getenv( "VPC_SRCCTL" ) != nullptr ) {
+        m_bP4SCC = V_atoi( getenv( "VPC_SRCCTL" ) ) != 0;
+    }
 
-  m_FilesMissing = 0;
+    #ifdef WIN32
+        m_eVSVersion = k_EVSVersion_2022;
+        m_bUseVS2010FileFormat = true;
+        m_bUseUnity = false;
+    #else
+        m_eVSVersion = k_EVSVersion_Invalid;
+        m_bUseVS2010FileFormat = false;
+        m_bUseUnity = false;
+    #endif
 
-  // need to check files by default, otherwise dependency failure (due to
-  // missing file) cause needles rebuilds
-  m_bCheckFiles = true;
+    m_FilesMissing = 0;
 
-  m_pProjectGenerator = nullptr;
-  m_pSolutionGenerator = nullptr;
+    // need to check files by default, otherwise dependency failure (due to
+    // missing file) cause needles rebuilds
+    m_bCheckFiles = true;
 
-#ifdef OSX
-  m_bForceIterate = true;
-#else
-  m_bForceIterate = false;
-#endif
+    m_pProjectGenerator = nullptr;
+    m_pSolutionGenerator = nullptr;
 
-  m_pPhase1Projects = nullptr;
+    m_bForceIterate = false;
+
+    m_pPhase1Projects = nullptr;
+}
+
+void CVPC::UpdateVPCConsoleTitle( PRINTF_FORMAT_STRING const char *format, ... )
+{
+    #ifdef WIN32
+        if (m_bQuiet) return;
+
+        va_list argptr;
+        char msg[MAX_SYSPRINTMSG];
+
+        char cConsoleTitle[CHAR_MAX];
+        GetConsoleTitle(cConsoleTitle, CHAR_MAX);
+
+        va_start( argptr, format );
+
+            vsprintf(msg, format, argptr);
+
+            if ( format != cConsoleTitle ) {
+                SetConsoleTitle( msg );
+            }
+
+        va_end( argptr );
+    #endif
 }
 
 bool CVPC::Init(int argc, const char **argv) {
-  Assert(argc >= 0);
-  Assert(argv);
+    Assert( argc >= 0 );
+    Assert( argv );
 
-  m_nArgc = argc;
-  m_ppArgv = argv;
+    m_nArgc = argc;
+    m_ppArgv = argv;
 
-  // vpc operates tersely by preferred company opinion verbosity necessary for
-  // debugging
-  m_bVerbose =
-      (HasCommandLineParameter("/v") || HasCommandLineParameter("/verbose"));
-  m_bQuiet =
-      (HasCommandLineParameter("/q") || HasCommandLineParameter("/quiet") ||
-       (getenv("VPC_QUIET") && V_stricmp(getenv("VPC_QUIET"), "0")));
+    // vpc operates tersely by preferred company opinion verbosity necessary for
+    // debugging
+    m_bVerbose =
+        (HasCommandLineParameter("/v") || HasCommandLineParameter("/verbose"));
+    m_bQuiet =
+        (HasCommandLineParameter("/q") || HasCommandLineParameter("/quiet") ||
+        (getenv("VPC_QUIET") && V_stricmp(getenv("VPC_QUIET"), "0")));
 
-#ifndef STEAM
-  LoggingSystem_PushLoggingState();
+    #ifndef STEAM
+        LoggingSystem_PushLoggingState();
 
-  m_LoggingListener.m_bQuietPrintf = m_bQuiet;
-  LoggingSystem_RegisterLoggingListener(&m_LoggingListener);
-#endif
+        m_LoggingListener.m_bQuietPrintf = m_bQuiet;
+        LoggingSystem_RegisterLoggingListener( &m_LoggingListener );
+    #endif
 
-  // needs to occur early and before any other expensive setup, a crc check just
-  // exits with an error code used by caller
-  InProcessCRCCheck();
+    // needs to occur early and before any other expensive setup, a crc check just
+    // exits with an error code used by caller
+    InProcessCRCCheck();
 
-  LoadPerforceInterface();
+    LoadPerforceInterface();
 
-  // vpc may have been run from wrong location, restart self
-  bool is_restart_child{false};
-  if (RestartFromCorrectLocation(&is_restart_child)) {
+    // vpc may have been run from wrong location, restart self
+    bool is_restart_child{ false };
+    if ( RestartFromCorrectLocation( &is_restart_child ) ) {
     // successfully ran under restart condition, all done
     return false;
-  }
+    }
 
-  if (is_restart_child) {
-    // this process is the restart child, cull the internal private restart
-    // guard option otherwise it gets confused as a build option
-    m_nArgc--;
-  }
+    if ( is_restart_child ) {
+        // this process is the restart child, cull the internal private restart
+        // guard option otherwise it gets confused as a build option
+        m_nArgc--;
+    }
+    
+    #ifdef WIN32
+        SetConsoleTitle( "Valve Project Creator" );
+    #endif
 
-  Log_Msg(LOG_VPC, "VPC - Valve Project Creator For ");
-  Log_Msg(LOG_VPC, "Visual Studio, Xbox 360, PlayStation 3, ");
-  Log_Msg(LOG_VPC, "Xcode and Make (Build: %s %s)\n", __DATE__, __TIME__);
-  Log_Msg(LOG_VPC,
-          "(C) Copyright 1996-2024, Valve Corporation, All rights reserved.\n");
-  Log_Msg(LOG_VPC, "\n");
+    Log_Msg(LOG_VPC, "VPC - Valve Project Creator for ");
+    Log_Msg(LOG_VPC, "Visual Studio and Make ( Build: %s %s )\n", __DATE__,
+            __TIME__);
+    Log_Msg(LOG_VPC,
+            "(C) Copyright 1996-2024, Valve Corporation, All rights reserved.\n");
+    Log_Msg(LOG_VPC, "\n");
 
-  return true;
+    return true;
 }
 
 //-----------------------------------------------------------------------------
@@ -1712,9 +1736,6 @@ void CVPC::SetMacrosAndConditionals() {
 #if defined(WIN32)
     pPlatformConditional =
         FindOrCreateConditional("WIN32", false, CONDITIONAL_PLATFORM);
-#elif defined(OSX)
-    pPlatformConditional =
-        FindOrCreateConditional("OSX32", false, CONDITIONAL_PLATFORM);
 #elif defined(LINUX)
     pPlatformConditional =
         FindOrCreateConditional("LINUX32", false, CONDITIONAL_PLATFORM);
@@ -1912,67 +1933,6 @@ void CVPC::SetMacrosAndConditionals() {
     SetMacro("_SYM_EXT", ".dbg", false);
 
     SetConditional("GL");
-  } else if (V_stricmp(cVPCPlatform.String(), "OSX32") == 0 ||
-             V_stricmp(cVPCPlatform.String(), "OSX64") == 0) {
-    if (V_stricmp(cVPCPlatform.String(), "OSX32") == 0) {
-      SetMacro("PLATSUBDIR", "\\osx32", false);
-    } else {
-      SetMacro("PLATSUBDIR", "\\osx64", false);
-    }
-
-    SetConditional("OSXALL");
-    if (m_bDedicatedBuild) {
-      SetConditional("DEDICATED");
-    }
-    SetConditional("POSIX");
-    SetMacro("_POSIX", "1", true);
-
-    SetMacro("_DLL_EXT", ".dylib", true);
-    SetMacro("_IMPLIB_EXT", ".dylib", false);
-
-    SetMacro("_IMPLIB_PREFIX", "lib", false);
-    SetMacro("_IMPLIB_DLL_PREFIX", "lib", false);
-
-    // SetMacro( "_STATICLIB_PREFIX", "lib", false );
-    SetMacro("_STATICLIB_PREFIX", "", false);
-    SetMacro("_STATICLIB_EXT", ".a", false);
-
-    SetMacro("_EXE_EXT", "", false);
-    SetMacro("_SYM_EXT", ".dSYM", false);
-
-    SetMacro("_EXTERNAL_DLL_EXT", ".dylib", true);
-    SetMacro("_EXTERNAL_IMPLIB_EXT", ".dylib", false);
-    SetMacro("_EXTERNAL_STATICLIB_EXT", ".a", false);
-
-    // Mac defaults to GL on
-    SetConditional("GL");
-  } else if (V_stricmp(cVPCPlatform.String(), "IOS") == 0) {
-    SetConditional("OSXALL");
-    if (m_bDedicatedBuild) {
-      SetConditional("DEDICATED");
-    }
-    SetConditional("POSIX");
-    SetMacro("_POSIX", "1", true);
-
-    SetConditional("IOS");
-    SetMacro("_IOS", "1", true);
-    SetMacro("IOS", "1", true);
-
-    SetMacro("_DLL_EXT", "_ios.dylib", true);
-    SetMacro("_IMPLIB_EXT", "_ios.dylib", false);
-
-    SetMacro("_IMPLIB_PREFIX", "lib", false);
-    SetMacro("_IMPLIB_DLL_PREFIX", "lib", false);
-
-    // SetMacro( "_STATICLIB_PREFIX", "lib", false );
-    SetMacro("_STATICLIB_PREFIX", "", false);
-    SetMacro("_STATICLIB_EXT", "_ios.a", false);
-
-    SetMacro("_EXE_EXT", "", false);
-
-    SetMacro("_EXTERNAL_DLL_EXT", "_ios.dylib", true);
-    SetMacro("_EXTERNAL_IMPLIB_EXT", "_ios.dylib", false);
-    SetMacro("_EXTERNAL_STATICLIB_EXT", "_ios.a", false);
   } else if (V_stricmp(cVPCPlatform.String(), "ANDROID") == 0) {
     SetConditional("LINUXALL");
     if (m_bDedicatedBuild) {
@@ -2220,16 +2180,10 @@ void CVPC::SetupGenerators() {
   extern IBaseSolutionGenerator *GetSolutionGenerator_Win32();
   extern IBaseProjectGenerator *GetWin32ProjectGenerator();
   extern IBaseProjectGenerator *GetWin32ProjectGenerator_2010();
-  extern IBaseProjectGenerator *GetPS3ProjectGenerator();
-  extern IBaseProjectGenerator *GetXbox360ProjectGenerator();
-  extern IBaseProjectGenerator *GetXbox360ProjectGenerator_2010();
   extern IBaseProjectGenerator *GetMakefileProjectGenerator();
   extern IBaseSolutionGenerator *GetMakefileSolutionGenerator();
-  extern IBaseProjectGenerator *GetXcodeProjectGenerator();
-  extern IBaseSolutionGenerator *GetXcodeSolutionGenerator();
 
   bool bIsLinux = IsPlatformDefined("LINUX32") || IsPlatformDefined("LINUX64");
-  bool bIsOSX = IsPlatformDefined("OSX32") || IsPlatformDefined("OSX64");
 
 #if defined(WIN32)
   // Under Windows we have the ability to generate makefiles so if they
@@ -2239,34 +2193,18 @@ void CVPC::SetupGenerators() {
       FindOrCreateConditional("DEDICATED", false, CONDITIONAL_CUSTOM);
 
   bool bUseMakefile = bIsLinux || (pConditional && pConditional->m_bDefined);
-  bool bUseXcode = bIsOSX;
 
   if (bUseMakefile) {
     Log_Msg(LOG_VPC,
             "\n** Detected Linux platform. Using Makefile generator.\n");
   }
 
-  if (bUseMakefile) {
+  if ( bUseMakefile ) {
     m_pProjectGenerator = GetMakefileProjectGenerator();
     m_pSolutionGenerator = GetMakefileSolutionGenerator();
-  } else if (bUseXcode) {
-    m_pProjectGenerator = GetXcodeProjectGenerator();
-    m_pSolutionGenerator = GetXcodeSolutionGenerator();
-    m_bForceIterate = true;
-  } else {
-    if (IsPlatformDefined("PS3")) {
-      m_pProjectGenerator = GetPS3ProjectGenerator();
-      m_pSolutionGenerator = GetSolutionGenerator_Win32();
-    } else if (IsPlatformDefined("X360")) {
-      if (m_bUseVS2010FileFormat) {
-        Log_Msg(LOG_VPC, Color(0, 255, 255, 255),
-                "Generating for Visual Studio 2010.\n");
-        m_pProjectGenerator = GetXbox360ProjectGenerator_2010();
-      } else {
-        m_pProjectGenerator = GetXbox360ProjectGenerator();
-      }
-      m_pSolutionGenerator = GetSolutionGenerator_Win32();
-    } else {
+  }
+  else
+  {
       // spew what we are generating
       const char *pchLogLine = "Generating for Visual Studio 2005.\n";
       if (m_eVSVersion == k_EVSVersion_2022)
@@ -2289,17 +2227,12 @@ void CVPC::SetupGenerators() {
         m_pProjectGenerator = GetWin32ProjectGenerator();
 
       m_pSolutionGenerator = GetSolutionGenerator_Win32();
-    }
   }
 #else
-  if (bIsLinux) {
+  if ( bIsLinux ) {
     // Linux always uses the makefile project generator.
     m_pProjectGenerator = GetMakefileProjectGenerator();
     m_pSolutionGenerator = GetMakefileSolutionGenerator();
-  }
-  if (bIsOSX) {
-    m_pProjectGenerator = GetXcodeProjectGenerator();
-    m_pSolutionGenerator = GetXcodeSolutionGenerator();
   }
 #endif
 }

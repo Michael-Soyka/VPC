@@ -321,6 +321,7 @@
       <WarningLevel>Level4</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NO_PERFORCE;STANDALONE_VPC;STATIC_TIER0;STATIC_VSTDLIB;COMPILER_MSVC;_CRT_SECURE_NO_WARNINGS;COMPILER_MSVC32;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(GitSha)'!=''">GIT_SHA="$(GitSha)";%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>public;public\tier0;public\tier1;public\tier2;public\vstdlib</AdditionalIncludeDirectories>
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
@@ -347,6 +348,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NO_PERFORCE;STANDALONE_VPC;STATIC_TIER0;STATIC_VSTDLIB;COMPILER_MSVC;_CRT_SECURE_NO_WARNINGS;COMPILER_MSVC32;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(GitSha)'!=''">GIT_SHA="$(GitSha)";%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>public;public\tier0;public\tier1;public\tier2;public\vstdlib</AdditionalIncludeDirectories>
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
@@ -372,6 +374,7 @@
       <WarningLevel>Level4</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NO_PERFORCE;STANDALONE_VPC;STATIC_TIER0;STATIC_VSTDLIB;COMPILER_MSVC;_CRT_SECURE_NO_WARNINGS;COMPILER_MSVC64;PLATFORM_64BITS;X64BITS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(GitSha)'!=''">GIT_SHA="$(GitSha)";%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>public;public\tier0;public\tier1;public\tier2;public\vstdlib</AdditionalIncludeDirectories>
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
@@ -401,6 +404,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NO_PERFORCE;STANDALONE_VPC;STATIC_TIER0;STATIC_VSTDLIB;COMPILER_MSVC;_CRT_SECURE_NO_WARNINGS;COMPILER_MSVC64;PLATFORM_64BITS;X64BITS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(GitSha)'!=''">GIT_SHA="$(GitSha)";%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>public;public\tier0;public\tier1;public\tier2;public\vstdlib</AdditionalIncludeDirectories>
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>

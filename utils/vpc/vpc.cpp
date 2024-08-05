@@ -179,8 +179,13 @@ bool CVPC::Init(int argc, const char **argv) {
     #endif
 
     Log_Msg(LOG_VPC, "VPC - Valve Project Creator for ");
-    Log_Msg(LOG_VPC, "Visual Studio and Make ( Build: %s %s )\n", __DATE__,
-            __TIME__);
+    #ifdef GIT_HASH
+        Log_Msg( LOG_VPC, 
+            "Visual Studio and Make ( Build time: %s %s; Build commit: %s )\n", __DATE__, __TIME__, GIT_HASH );
+    #else
+        Log_Msg( LOG_VPC, 
+            "Visual Studio and Make ( Build: %s %s )\n", __DATE__, __TIME__ );
+    #endif
     Log_Msg(LOG_VPC,
             "(C) Copyright 1996-2024, Valve Corporation, All rights reserved.\n");
     Log_Msg(LOG_VPC, "\n");

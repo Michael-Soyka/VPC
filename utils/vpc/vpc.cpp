@@ -113,17 +113,18 @@ CVPC::CVPC() {
 void CVPC::UpdateVPCConsoleTitle( PRINTF_FORMAT_STRING const char *format, ... )
 {
     #ifdef WIN32
-        if (m_bQuiet) return;
+        if ( m_bQuiet )
+            return;
 
         va_list argptr;
-        char msg[MAX_SYSPRINTMSG];
+        char msg[ MAX_SYSPRINTMSG ];
 
-        char cConsoleTitle[CHAR_MAX];
-        GetConsoleTitle(cConsoleTitle, CHAR_MAX);
+        char cConsoleTitle[ CHAR_MAX ];
+        GetConsoleTitle( cConsoleTitle, CHAR_MAX );
 
         va_start( argptr, format );
 
-            vsprintf(msg, format, argptr);
+            vsprintf( msg, format, argptr );
 
             if ( format != cConsoleTitle ) {
                 SetConsoleTitle( msg );
@@ -133,7 +134,7 @@ void CVPC::UpdateVPCConsoleTitle( PRINTF_FORMAT_STRING const char *format, ... )
     #endif
 }
 
-bool CVPC::Init(int argc, const char **argv) {
+bool CVPC::Init( int argc, const char **argv ) {
     Assert( argc >= 0 );
     Assert( argv );
 
@@ -143,10 +144,10 @@ bool CVPC::Init(int argc, const char **argv) {
     // vpc operates tersely by preferred company opinion verbosity necessary for
     // debugging
     m_bVerbose =
-        (HasCommandLineParameter("/v") || HasCommandLineParameter("/verbose"));
+        ( HasCommandLineParameter( "/v" ) || HasCommandLineParameter( "/verbose" ) );
     m_bQuiet =
-        (HasCommandLineParameter("/q") || HasCommandLineParameter("/quiet") ||
-        (getenv("VPC_QUIET") && V_stricmp(getenv("VPC_QUIET"), "0")));
+        ( HasCommandLineParameter( "/q" ) || HasCommandLineParameter( "/quiet" ) ||
+        ( getenv( "VPC_QUIET" ) && V_stricmp( getenv( "VPC_QUIET" ), "0" ) ) );
 
     #ifndef STEAM
         LoggingSystem_PushLoggingState();
@@ -175,10 +176,10 @@ bool CVPC::Init(int argc, const char **argv) {
     }
     
     #ifdef WIN32
-        SetConsoleTitle( "Valve Project Creator" );
+        SetConsoleTitle( "Moon Project Creator" );
     #endif
 
-    Log_Msg( LOG_VPC, "VPC - Valve Project Creator for " );
+    Log_Msg( LOG_VPC, "VPC - Moon Project Creator for " );
     Log_Msg( LOG_VPC, "Visual Studio and Make\n" );
     #ifdef GIT_SHA
         Log_Msg( LOG_VPC, 
@@ -189,6 +190,10 @@ bool CVPC::Init(int argc, const char **argv) {
     #endif
     Log_Msg( LOG_VPC,
             "(C) Copyright 1996-2024, Valve Corporation, All rights reserved.\n" );
+    #ifdef OTM
+        Log_Msg( LOG_VPC,
+                "(C) Copyright 2024, Moon-6 Team, All rights reserved.\n" );
+    #endif
     Log_Msg( LOG_VPC, "\n" );
 
     return true;
@@ -197,383 +202,391 @@ bool CVPC::Init(int argc, const char **argv) {
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 void CVPC::Shutdown(bool bHasError) {
-  if (!bHasError) {
-    GetScript().EnsureScriptStackEmpty();
-  }
-
-  if (!m_TempGroupScriptFilename.IsEmpty()) {
-    const char *temp_path{m_TempGroupScriptFilename.Get()};
-
-    // delete temp work file
-    if (_unlink(temp_path)) {
-      VPCWarning("Unlinking temp file %s failed: %s", temp_path,
-                 strerror(errno));
+    if ( !bHasError ) {
+        GetScript().EnsureScriptStackEmpty();
     }
 
-    m_TempGroupScriptFilename.Clear();
-  }
+    if ( !m_TempGroupScriptFilename.IsEmpty() ) {
+    const char *temp_path{ m_TempGroupScriptFilename.Get() };
 
-  UnloadPerforceInterface();
+        // delete temp work file
+        if ( _unlink( temp_path ) ) {
+            VPCWarning( "Unlinking temp file %s failed: %s", temp_path,
+                        strerror( errno ) );
+        }
 
-#ifndef STEAM
-  LoggingSystem_UnregisterLoggingListener(&m_LoggingListener);
+        m_TempGroupScriptFilename.Clear();
+    }
 
-  LoggingSystem_PopLoggingState();
-#endif
+    UnloadPerforceInterface();
+
+    #ifndef STEAM
+        LoggingSystem_UnregisterLoggingListener(&m_LoggingListener);
+
+        LoggingSystem_PopLoggingState();
+    #endif
 }
 
 // Usually you have no Perforce version control system.
-#if defined(STANDALONE_VPC) && !defined(NO_PERFORCE)
-class CP4;
-extern CP4 s_p4;
+#if defined( STANDALONE_VPC ) && !defined( NO_PERFORCE )
+    class CP4;
+    extern CP4 s_p4;
 #endif
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 bool CVPC::LoadPerforceInterface() {
-  if (p4) {
-    // already loaded
-    return true;
-  }
+    if ( p4 )
+        return true; // already loaded
 
-#if defined(STANDALONE_VPC)
-#if !defined(NO_PERFORCE)
-  p4 = (IP4 *)&s_p4;
-  return (p4 != NULL);
-#else
-  return false;
-#endif
-#else
+    #if defined( STANDALONE_VPC )
+        #if !defined( NO_PERFORCE )
+            p4 = ( IP4 * )&s_p4;
+            return ( p4 != NULL );
+        #else
+            return false;
+        #endif
+    #else
 
-  //
-  // Try to load p4lib.dll and the filesystem since the p4lib relies on it
-  //
-  char p4libdll[MAX_PATH];
-  char filesystemdll[MAX_PATH];
+        //
+        // Try to load p4lib.dll and the filesystem since the p4lib relies on it
+        //
+        char p4libdll[MAX_PATH];
+        char filesystemdll[MAX_PATH];
 
-#ifdef _WIN32
-  // Don't require them to have game\bin in their path. Since we know where
-  // vpc.exe is, point directly to p4lib.dll in its rightful place.
-  char szModuleBinPath[MAX_PATH];
-  GetModuleFileName(NULL, szModuleBinPath, sizeof(szModuleBinPath));
-  V_ExtractFilePath(szModuleBinPath, p4libdll, sizeof(p4libdll));
-  V_AppendSlash(p4libdll, sizeof(p4libdll));
-  V_strncpy(filesystemdll, p4libdll, sizeof(filesystemdll));
-  V_strncat(p4libdll, "..\\..\\..\\game\\bin\\p4lib.dll", sizeof(p4libdll));
-  V_strncat(filesystemdll, "..\\..\\..\\game\\bin\\filesystem_stdio.dll",
-            sizeof(filesystemdll));
-#else
-  V_strncpy(p4libdll, "p4lib", sizeof(p4libdll));
-  V_strncpy(filesystemdll, "filesystem_stdio", sizeof(filesystemdll));
-#endif
+        #ifdef _WIN32
+            // Don't require them to have game\bin in their path. Since we know where
+            // vpc.exe is, point directly to p4lib.dll in its rightful place.
+            char szModuleBinPath[MAX_PATH];
+            GetModuleFileName(NULL, szModuleBinPath, sizeof(szModuleBinPath));
+            V_ExtractFilePath(szModuleBinPath, p4libdll, sizeof(p4libdll));
+            V_AppendSlash(p4libdll, sizeof(p4libdll));
+            V_strncpy(filesystemdll, p4libdll, sizeof(filesystemdll));
+            V_strncat(p4libdll, "..\\..\\..\\game\\bin\\p4lib.dll", sizeof(p4libdll));
+            V_strncat(filesystemdll, "..\\..\\..\\game\\bin\\filesystem_stdio.dll",
+                    sizeof(filesystemdll));
+        #else
+            V_strncpy(p4libdll, "p4lib", sizeof(p4libdll));
+            V_strncpy(filesystemdll, "filesystem_stdio", sizeof(filesystemdll));
+        #endif
 
-  if (!Sys_LoadInterface(p4libdll, P4_INTERFACE_VERSION, &m_pP4Module,
-                         (void **)&p4)) {
-#ifdef _WIN32
-    // This always fails on non-Windows build machines -- the warning is
-    // annoying and not helpful.
-    VPCWarning("Unable to get Perforce interface from p4lib.dll.");
-#endif
-    return false;
-  }
+        if ( !Sys_LoadInterface( p4libdll, P4_INTERFACE_VERSION, &m_pP4Module,
+                ( void ** )&p4 ) ) {
 
-  // Let the P4 module get its interface to the filesystem - hate this
+            #ifdef _WIN32
+                // This always fails on non-Windows build machines -- the warning is
+                // annoying and not helpful.
+                VPCWarning( "Unable to get Perforce interface from p4lib.dll." );
+            #endif
 
-  // This method is not available in portal2, but is in source2.
-  //	p4->SetVerbose( false );
-  m_pFilesystemModule = Sys_LoadModule(filesystemdll);
-  p4->Connect(Sys_GetFactory(m_pFilesystemModule));
+            return false;
+        }
 
-  return true;
-#endif
+        // Let the P4 module get its interface to the filesystem - hate this
+
+        // This method is not available in portal2, but is in source2.
+        //	p4->SetVerbose( false );
+        m_pFilesystemModule = Sys_LoadModule( filesystemdll );
+        p4->Connect( Sys_GetFactory( m_pFilesystemModule ) );
+
+        return true;
+    #endif
 }
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 void CVPC::UnloadPerforceInterface() {
-  // Unload P4 if it was loaded
-  if (m_pP4Module) {
-    Sys_UnloadModule(m_pP4Module);
-    m_pP4Module = NULL;
-  }
+    // Unload P4 if it was loaded
+    if ( m_pP4Module ) {
+        Sys_UnloadModule( m_pP4Module );
+        m_pP4Module = NULL;
+    }
 
-  if (m_pFilesystemModule) {
-    Sys_UnloadModule(m_pFilesystemModule);
-    m_pFilesystemModule = NULL;
-  }
+    if ( m_pFilesystemModule ) {
+        Sys_UnloadModule( m_pFilesystemModule );
+        m_pFilesystemModule = NULL;
+    }
 }
 
-bool VPC_Config_IgnoreOption(const char *pPropertyName) {
-  char buff[MAX_SYSTOKENCHARS];
-  g_pVPC->GetScript().ParsePropertyValue(NULL, buff, sizeof(buff));
-  return true;
-}
+bool VPC_Config_IgnoreOption( const char *pPropertyName ) {
+    char buff[ MAX_SYSTOKENCHARS ];
 
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-[[noreturn]] void CVPC::VPCError(PRINTF_FORMAT_STRING const char *format, ...) {
-  va_list argptr;
-  char msg[MAX_SYSPRINTMSG];
+    g_pVPC->GetScript().ParsePropertyValue( NULL, buff, sizeof( buff ) );
 
-  va_start(argptr, format);
-  vsprintf(msg, format, argptr);
-  va_end(argptr);
-
-  // spew in red
-  Log_Warning(LOG_VPC, Color(255, 0, 0, 255), "ERROR: %s\n", msg);
-
-  // dump the script stack to assist in user understading of the include chain
-  GetScript().SpewScriptStack();
-
-  // do proper shutdown in an error context
-  Shutdown(true);
-
-  // errors are expected to be fatal by all calling code
-  // otherwise it would have been a warning
-  exit(1);
+    return true;
 }
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-[[noreturn]] void CVPC::VPCSyntaxError(PRINTF_FORMAT_STRING const char *format,
-                                       ...) {
-  va_list argptr;
-  char msg[MAX_SYSPRINTMSG];
+[ [ noreturn ] ] void CVPC::VPCError(PRINTF_FORMAT_STRING const char *format, ...) {
+    va_list argptr;
+    char msg[ MAX_SYSPRINTMSG ];
 
-  va_start(argptr, format);
-  if (format) {
-    vsprintf(msg, format, argptr);
-  }
-  va_end(argptr);
+    va_start( argptr, format );
+        vsprintf( msg, format, argptr );
+    va_end( argptr );
 
-  if (format) {
-    Log_Warning(LOG_VPC, Color(255, 0, 0, 255), "Bad Syntax: %s\n", msg);
-  }
+    // spew in red
+    Log_Warning( LOG_VPC, Color( 255, 0, 0, 255 ), "ERROR: %s\n", msg );
 
-  // syntax errors are fatal
-  VPCError("Bad Syntax in '%s' line:%d\n", GetScript().GetName(),
-           GetScript().GetLine());
+    // dump the script stack to assist in user understading of the include chain
+    GetScript().SpewScriptStack();
+
+    // do proper shutdown in an error context
+    Shutdown( true );
+
+    // errors are expected to be fatal by all calling code
+    // otherwise it would have been a warning
+    exit( 1 );
+    }
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+[ [ noreturn ] ] void CVPC::VPCSyntaxError( PRINTF_FORMAT_STRING const char *format, ... ) {
+    va_list argptr;
+    char msg[ MAX_SYSPRINTMSG ];
+
+    va_start( argptr, format );
+    if ( format ) {
+        vsprintf( msg, format, argptr );
+    }
+    va_end( argptr );
+
+    if ( format ) {
+        Log_Warning( LOG_VPC, Color( 255, 0, 0, 255 ), "Bad Syntax: %s\n", msg );
+    }
+
+    // syntax errors are fatal
+    VPCError( "Bad Syntax in '%s' line:%d\n", GetScript().GetName(),
+                GetScript().GetLine() );
 }
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-void CVPC::VPCWarning(PRINTF_FORMAT_STRING const char *format, ...) {
-  va_list argptr;
-  char msg[MAX_SYSPRINTMSG];
+void CVPC::VPCWarning( PRINTF_FORMAT_STRING const char *format, ... ) {
+    va_list argptr;
+    char msg[ MAX_SYSPRINTMSG ];
 
-  va_start(argptr, format);
-  vsprintf(msg, format, argptr);
-  va_end(argptr);
+    va_start( argptr, format );
+        vsprintf( msg, format, argptr );
+    va_end( argptr );
 
-  if (m_bIgnoreRedundancyWarning) {
-    if (V_stristr(msg, "matches default setting")) return;
-    if (V_stristr(msg, "already exists in project")) return;
-  }
+    if ( m_bIgnoreRedundancyWarning ) {
+        if ( V_stristr( msg, "matches default setting" ) )
+            return;
+        if ( V_stristr( msg, "already exists in project" ) )
+            return;
+    }
 
-  Log_Warning(LOG_VPC, Color(255, 255, 0, 255), "WARNING: %s\n", msg);
+    Log_Warning( LOG_VPC, Color( 255, 255, 0, 255 ), "WARNING: %s\n", msg );
 }
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 void CVPC::VPCStatus(bool bAlwaysSpew, PRINTF_FORMAT_STRING const char *format,
-                     ...) {
-  if (m_bQuiet) return;
+                        ...) {
+    if ( m_bQuiet )
+        return;
 
-  va_list argptr;
-  char msg[MAX_SYSPRINTMSG];
+    va_list argptr;
+    char msg[ MAX_SYSPRINTMSG ];
 
-  va_start(argptr, format);
-  vsprintf(msg, format, argptr);
-  va_end(argptr);
+    va_start( argptr, format );
+        vsprintf( msg, format, argptr );
+    va_end( argptr );
 
-  if (bAlwaysSpew || m_bVerbose) {
-    Log_Msg(LOG_VPC, "%s\n", msg);
-  }
+    if ( bAlwaysSpew || m_bVerbose ) {
+        Log_Msg( LOG_VPC, "%s\n", msg );
+    }
 }
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-intp CVPC::GetProjectsInGroup(CUtlVector<projectIndex_t> &projectList,
-                              const char *pGroupName) {
-  projectList.RemoveAll();
+intp CVPC::GetProjectsInGroup( CUtlVector<projectIndex_t> &projectList,
+                                const char *pGroupName ) {
+    projectList.RemoveAll();
 
-  // Find the specified group
-  groupTagIndex_t groupTagIndex =
-      VPC_Group_FindOrCreateGroupTag(pGroupName, false);
+    // Find the specified group
+    groupTagIndex_t groupTagIndex =
+        VPC_Group_FindOrCreateGroupTag( pGroupName, false );
 
-  if (groupTagIndex != INVALID_INDEX) {
-    FOR_EACH_VEC(m_GroupTags[groupTagIndex].groups, m) {
-      FOR_EACH_VEC(m_Groups[m_GroupTags[groupTagIndex].groups[m]].projects, n) {
-        projectList.AddToTail(
-            m_Groups[m_GroupTags[groupTagIndex].groups[m]].projects[n]);
-      }
+    if ( groupTagIndex != INVALID_INDEX ) {
+        FOR_EACH_VEC( m_GroupTags[ groupTagIndex ].groups, m ) {
+            FOR_EACH_VEC( m_Groups[ m_GroupTags[ groupTagIndex ].groups[ m ] ].projects, n ) {
+            projectList.AddToTail(
+                m_Groups[ m_GroupTags[ groupTagIndex ].groups[ m ] ].projects[ n ]);
+            }
+        }
     }
-  }
 
-  return projectList.Count();
+    return projectList.Count();
 }
 
 //-----------------------------------------------------------------------------
 // Checks to ensure the bin path is in the same tree as the vpc_scripts
 // Returns true if bin path valid
 //-----------------------------------------------------------------------------
-#if !defined(POSIX)
-bool CVPC::CheckBinPath(char *pOutBinPath, int outBinPathSize) {
-  char szScriptPath[MAX_PATH];
-  char szDirectory[MAX_PATH];
-  char szLastDirectory[MAX_PATH];
+#if !defined( POSIX )
+    bool CVPC::CheckBinPath( char *pOutBinPath, int outBinPathSize ) {
+        char szScriptPath[ MAX_PATH ];
+        char szDirectory[ MAX_PATH ];
+        char szLastDirectory[ MAX_PATH ];
 
-  // non destructively determine the vpc_scripts directory
-  bool bFound = false;
-  szLastDirectory[0] = '\0';
-  szScriptPath[0] = '\0';
-  V_GetCurrentDirectory(szDirectory, sizeof(szDirectory));
-  while (1) {
-    V_ComposeFileName(szDirectory, "vpc_scripts", szScriptPath,
-                      sizeof(szScriptPath));
-    struct _stat statBuf;
-    if (_stat(szScriptPath, &statBuf) != -1) {
-      bFound = true;
-      break;
+        // non destructively determine the vpc_scripts directory
+        bool bFound = false;
+        szLastDirectory[ 0 ] = '\0';
+        szScriptPath[ 0 ] = '\0';
+        V_GetCurrentDirectory( szDirectory, sizeof( szDirectory ) );
+
+        while ( 1 ) {
+            V_ComposeFileName( szDirectory, "vpc_scripts", szScriptPath,
+                                sizeof( szScriptPath ) );
+            struct _stat statBuf;
+            if ( _stat( szScriptPath, &statBuf ) != -1 ) {
+                bFound = true;
+                break;
+            }
+
+            // previous dir
+            V_ComposeFileName( szDirectory, "..", szScriptPath, sizeof( szScriptPath ) );
+
+            char fullPath[ MAX_PATH ];
+            if ( _fullpath( fullPath, szScriptPath, sizeof( fullPath ) ) ) {
+                V_strncpy( szDirectory, fullPath, sizeof( szDirectory ) );
+            }
+
+            if ( !V_stricmp( szDirectory, szLastDirectory ) ) {
+                // can back up no further
+                break;
+            }
+            strcpy( szLastDirectory, szDirectory );
+        }
+
+        if ( !bFound ) {
+        VPCError( "Failed to determine source directory from current path. Expecting "
+            "'vpc_scripts' in source path." );
+        }
+
+        char szSourcePath[ MAX_PATH ];
+        strcpy( szSourcePath, szDirectory );
+
+        // check to ensure that executeable and src directory are in the same tree
+        // executeable needs to be tightly bound to its vpc_scripts
+        char szModuleBinPath[ MAX_PATH ];
+        GetModuleFileName( NULL, szModuleBinPath, sizeof( szModuleBinPath ) );
+
+        // cannot trust output from GetModuleFileName(), occasionally has ./ or ../
+        // screwing up comparisons
+        V_RemoveDotSlashes( szModuleBinPath, '\\' );
+        V_strlower( szModuleBinPath );
+        V_strncpy( pOutBinPath, szModuleBinPath, outBinPathSize );
+
+        // allowed to run from a root "devbin", for use with junctions
+    #ifdef OTM
+        if ( Sys_StringPatternMatch( "?:\\devbin\\mpc.exe", szModuleBinPath ) )
+    #else
+        if ( Sys_StringPatternMatch( "?:\\devbin\\vpc.exe", szModuleBinPath ) )
+    #endif
+            return true;
+
+        char *pString = V_stristr(szModuleBinPath, "\\devtools\\bin\\");
+        if ( pString ) {
+            // source dirs should match
+            char chSave = *pString;
+            *pString = '\0';
+            bool bSame = V_stricmp( szSourcePath, szModuleBinPath ) == 0;
+            *pString = chSave;
+
+            if ( bSame )
+                return true;
+        } else {
+            VPCError( "Executable not running from 'devtools/bin' but from unexpected "
+                        "directory '%s'", szModuleBinPath );
+        }
+
+        // mismatched, wierd bin patch could have been a result of user's environment
+        // path use expected source path which is based on user's cwd to get the real
+        // bin path
+        V_strncpy( pOutBinPath, szSourcePath, outBinPathSize );
+        #ifdef OTM
+            V_strncat( pOutBinPath, "\\devtools\\bin\\mpc.exe", outBinPathSize );
+        #else
+            V_strncat( pOutBinPath, "\\devtools\\bin\\vpc.exe", outBinPathSize );
+        #endif
+        struct _stat statBuf;
+        if ( _stat( pOutBinPath, &statBuf ) == -1 )
+            VPCError( "Correct executeable missing, should be at '%s'", pOutBinPath );
+
+        // yikes, wrong executeable was started, agreed behavior was to restart based
+        // on user's cwd REALLY want users to see this, it indicates a possible hazard
+        // of using the wrong vpc
+        Log_Warning( LOG_VPC, Color( 255, 255, 0, 255 ),
+                        "****************************************************************"
+                        "****************\n" );
+        Log_Warning( LOG_VPC, Color( 255, 255, 0, 255 ),
+                        "Wrong Executable '%s' Running!\nRestarting at '%s'\n",
+                        szModuleBinPath, pOutBinPath );
+        Log_Warning( LOG_VPC, Color( 255, 255, 0, 255 ),
+                        "****************************************************************"
+                        "****************\n" );
+
+        return false;
     }
-
-    // previous dir
-    V_ComposeFileName(szDirectory, "..", szScriptPath, sizeof(szScriptPath));
-
-    char fullPath[MAX_PATH];
-    if (_fullpath(fullPath, szScriptPath, sizeof(fullPath))) {
-      V_strncpy(szDirectory, fullPath, sizeof(szDirectory));
-    }
-
-    if (!V_stricmp(szDirectory, szLastDirectory)) {
-      // can back up no further
-      break;
-    }
-    strcpy(szLastDirectory, szDirectory);
-  }
-
-  if (!bFound) {
-    VPCError(
-        "Failed to determine source directory from current path. Expecting "
-        "'vpc_scripts' in source path.");
-  }
-
-  char szSourcePath[MAX_PATH];
-  strcpy(szSourcePath, szDirectory);
-
-  // check to ensure that executeable and src directory are in the same tree
-  // executeable needs to be tightly bound to its vpc_scripts
-  char szModuleBinPath[MAX_PATH];
-  GetModuleFileName(NULL, szModuleBinPath, sizeof(szModuleBinPath));
-
-  // cannot trust output from GetModuleFileName(), occasionally has ./ or ../
-  // screwing up comparisons
-  V_RemoveDotSlashes(szModuleBinPath, '\\');
-  V_strlower(szModuleBinPath);
-  V_strncpy(pOutBinPath, szModuleBinPath, outBinPathSize);
-
-  // allowed to run from a root "devbin", for use with junctions
-  if (Sys_StringPatternMatch("?:\\devbin\\vpc.exe", szModuleBinPath))
-    return true;
-
-  char *pString = V_stristr(szModuleBinPath, "\\devtools\\bin\\");
-  if (pString) {
-    // source dirs should match
-    char chSave = *pString;
-    *pString = '\0';
-    bool bSame = V_stricmp(szSourcePath, szModuleBinPath) == 0;
-    *pString = chSave;
-
-    if (bSame) {
-      return true;
-    }
-  } else {
-    VPCError(
-        "Executable not running from 'devtools/bin' but from unexpected "
-        "directory '%s'",
-        szModuleBinPath);
-  }
-
-  // mismatched, wierd bin patch could have been a result of user's environment
-  // path use expected source path which is based on user's cwd to get the real
-  // bin path
-  V_strncpy(pOutBinPath, szSourcePath, outBinPathSize);
-  V_strncat(pOutBinPath, "\\devtools\\bin\\vpc.exe", outBinPathSize);
-  struct _stat statBuf;
-  if (_stat(pOutBinPath, &statBuf) == -1) {
-    VPCError("Correct executeable missing, should be at '%s'", pOutBinPath);
-  }
-
-  // yikes, wrong executeable was started, agreed behavior was to restart based
-  // on user's cwd REALLY want users to see this, it indicates a possible hazard
-  // of using the wrong vpc
-  Log_Warning(LOG_VPC, Color(255, 255, 0, 255),
-              "****************************************************************"
-              "****************\n");
-  Log_Warning(LOG_VPC, Color(255, 255, 0, 255),
-              "Wrong Executable '%s' Running!\nRestarting at '%s'\n",
-              szModuleBinPath, pOutBinPath);
-  Log_Warning(LOG_VPC, Color(255, 255, 0, 255),
-              "****************************************************************"
-              "****************\n");
-
-  return false;
-}
 #endif
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 void CVPC::DetermineSourcePath() {
-  char source_path[MAX_PATH];
-  char last_directory[MAX_PATH];
+    char source_path[ MAX_PATH ];
+    char last_directory[ MAX_PATH ];
 
-  char old_path[MAX_PATH];
-  V_GetCurrentDirectory(old_path, sizeof(old_path));
+    char old_path[ MAX_PATH ];
+    V_GetCurrentDirectory( old_path, sizeof( old_path ) );
 
-  // find vpc_scripts from cwd
-  last_directory[0] = '\0';
-  bool is_found{false};
+    // find vpc_scripts from cwd
+    last_directory[0] = '\0';
+    bool is_found{ false };
 
-  while (1) {
-    V_GetCurrentDirectory(source_path, sizeof(source_path));
-    if (!V_stricmp(source_path, last_directory)) {
-      // can back up no further
-      break;
+    while ( 1 ) {
+        V_GetCurrentDirectory( source_path, sizeof( source_path ) );
+        if ( !V_stricmp(source_path, last_directory ) ) {
+            // can back up no further
+            break;
+        }
+
+        V_strncpy( last_directory, source_path, sizeof( last_directory ) );
+
+        char test_directory[ MAX_PATH ];
+        V_ComposeFileName( source_path, "vpc_scripts", test_directory,
+                            sizeof( test_directory ) );
+
+        struct _stat statBuf;
+        if ( _stat( test_directory, &statBuf ) != -1) {
+            is_found = true;
+            break;
+        }
+
+        // previous dir
+        char prev_directory[MAX_PATH];
+        V_ComposeFileName(source_path, "..", prev_directory,
+                            sizeof(prev_directory));
+        V_SetCurrentDirectory(prev_directory);
     }
 
-    V_strncpy(last_directory, source_path, sizeof(last_directory));
-
-    char test_directory[MAX_PATH];
-    V_ComposeFileName(source_path, "vpc_scripts", test_directory,
-                      sizeof(test_directory));
-
-    struct _stat statBuf;
-    if (_stat(test_directory, &statBuf) != -1) {
-      is_found = true;
-      break;
-    }
-
-    // previous dir
-    char prev_directory[MAX_PATH];
-    V_ComposeFileName(source_path, "..", prev_directory,
-                      sizeof(prev_directory));
-    V_SetCurrentDirectory(prev_directory);
-  }
-
-  if (!is_found) {
+    if (!is_found) {
     VPCError(
         "Failed to determine source directory from current path. Expecting "
         "'vpc_scripts' in source path.");
-  }
+    }
 
-  // Remember the source path and restore the path to where it was.
-  m_SourcePath = source_path;
-  V_SetCurrentDirectory(old_path);
+    // Remember the source path and restore the path to where it was.
+    m_SourcePath = source_path;
+    V_SetCurrentDirectory(old_path);
 
-  // always emit source path, identifies MANY redundant user problems
-  // users can easily run from an unintended place due to botched path, mangled
-  // directories, etc
-  Log_Msg(LOG_VPC, "Source Path: %s\n", m_SourcePath.Get());
+    // always emit source path, identifies MANY redundant user problems
+    // users can easily run from an unintended place due to botched path, mangled
+    // directories, etc
+    Log_Msg(LOG_VPC, "Source Path: %s\n", m_SourcePath.Get());
 }
 
 //-----------------------------------------------------------------------------
@@ -1633,71 +1646,77 @@ bool CVPC::BuildTargetProjects() {
 //	Find the project that corresponds to the specified vcproj and setup
 //  to build that project.
 //-----------------------------------------------------------------------------
-void CVPC::FindProjectFromVCPROJ(const char *pScriptNameVCProj) {
-  // caller is specifying the output vcproj, i.e. via tool shortcut from within
-  // MSDEV to re-gen use the vpc standardized output vcproj name to determine
-  // re-gen parameters mod and platform will be separated by '_' after the
-  // project name resolve to correct project, best will be longest match, due to
-  // project names like foo_? and foo_bar_?
-  char szProject[MAX_PATH];
-  szProject[0] = '\0';
+void CVPC::FindProjectFromVCPROJ( const char *pScriptNameVCProj ) {
+    // caller is specifying the output vcproj, i.e. via tool shortcut from within
+    // MSDEV to re-gen use the vpc standardized output vcproj name to determine
+    // re-gen parameters mod and platform will be separated by '_' after the
+    // project name resolve to correct project, best will be longest match, due to
+    // project names like foo_? and foo_bar_?
+    char szProject[MAX_PATH];
+    szProject[0] = '\0';
 
-  size_t bestLen = 0;
-  for (int i = 0; i < m_Projects.Count(); i++) {
-    if (V_stristr(pScriptNameVCProj, m_Projects[i].name.String())) {
-      if (bestLen < strlen(m_Projects[i].name.String())) {
-        bestLen = strlen(m_Projects[i].name.String());
-        strcpy(szProject, m_Projects[i].name.String());
-      }
+    size_t bestLen = 0;
+    for (int i = 0; i < m_Projects.Count(); i++) {
+        if (V_stristr(pScriptNameVCProj, m_Projects[i].name.String())) {
+            if (bestLen < strlen(m_Projects[i].name.String())) {
+                bestLen = strlen(m_Projects[i].name.String());
+                strcpy(szProject, m_Projects[i].name.String());
+            }
+        }
     }
-  }
 
-  if (bestLen == 0) {
-    VPCError("Could not resolve '%s' to any known projects", pScriptNameVCProj);
-  }
-
-  // skip past known project
-  char szBuffer[MAX_PATH];
-  V_StripExtension(pScriptNameVCProj + strlen(szProject), szBuffer,
-                   sizeof(szBuffer));
-
-  // each token is separated by '_'
-  int numTokens = 0;
-  char *pToken = szBuffer;
-  char *pStart = pToken;
-  char szTokens[2][MAX_PATH];
-  while (numTokens < 2) {
-    if (pStart[0] == '_') {
-      pStart++;
-      pToken = strchr(pStart, '_');
-      if (!pToken) {
-        strcpy(szTokens[numTokens++], pStart);
-        break;
-      } else {
-        strncpy(szTokens[numTokens], pStart, pToken - pStart);
-        szTokens[numTokens][pToken - pStart] = '\0';
-        numTokens++;
-        pStart = pToken;
-      }
-    } else {
-      break;
+    if (bestLen == 0) {
+        VPCError("Could not resolve '%s' to any known projects", pScriptNameVCProj);
     }
-  }
 
-  // re-build a commandline
-  int localArgc = 0;
-  char *localArgv[16];
-  char argBuffers[16][MAX_PATH];
-  for (int i = 0; i < V_ARRAYSIZE(localArgv); i++) {
-    localArgv[i] = argBuffers[i];
-  }
-  strcpy(localArgv[localArgc++], "vpc.exe");
-  sprintf(localArgv[localArgc++], "+%s", szProject);
-  for (int i = 0; i < numTokens; i++) {
-    sprintf(localArgv[localArgc++], "/%s", szTokens[i]);
-  }
+    // skip past known project
+    char szBuffer[MAX_PATH];
+    V_StripExtension(pScriptNameVCProj + strlen(szProject), szBuffer,
+                    sizeof(szBuffer));
 
-  ParseBuildOptions(localArgc, const_cast<const char **>(localArgv));
+    // each token is separated by '_'
+    int numTokens = 0;
+    char *pToken = szBuffer;
+    char *pStart = pToken;
+    char szTokens[2][MAX_PATH];
+    while (numTokens < 2) {
+        if (pStart[0] == '_') {
+            pStart++;
+            pToken = strchr(pStart, '_');
+            if (!pToken) {
+            strcpy(szTokens[numTokens++], pStart);
+            break;
+            } else {
+            strncpy(szTokens[numTokens], pStart, pToken - pStart);
+            szTokens[numTokens][pToken - pStart] = '\0';
+            numTokens++;
+            pStart = pToken;
+            }
+        } else {
+            break;
+        }
+    }
+
+    // re-build a commandline
+    int localArgc = 0;
+    char *localArgv[16];
+    char argBuffers[16][MAX_PATH];
+    for (int i = 0; i < V_ARRAYSIZE(localArgv); i++) {
+        localArgv[i] = argBuffers[i];
+    }
+
+    #ifdef OTM
+        strcpy( localArgv[ localArgc++ ], "mpc.exe" );
+    #else
+        strcpy( localArgv[ localArgc++ ], "vpc.exe" );
+    #endif
+
+    sprintf( localArgv[ localArgc++ ], "+%s", szProject );
+    for ( int i = 0; i < numTokens; i++ ) {
+        sprintf( localArgv[ localArgc++ ], "/%s", szTokens[ i ] );
+    }
+
+    ParseBuildOptions( localArgc, const_cast< const char ** >( localArgv ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -1846,165 +1865,165 @@ void CVPC::SetMacrosAndConditionals() {
   // create and define various other platform related helper conditionals
   // andmacros
   if (V_stricmp(cVPCPlatform.String(), "WIN32") == 0 ||
-      V_stricmp(cVPCPlatform.String(), "WIN64") == 0) {
-    if (V_stricmp(cVPCPlatform.String(), "WIN32") == 0) {
-      SetMacro("PLATSUBDIR", "\\win32", false);
-    } else {
-      SetMacro("PLATSUBDIR", "\\win64", false);
-    }
-    SetConditional("WINDOWS");
+        V_stricmp(cVPCPlatform.String(), "WIN64") == 0) {
+        if (V_stricmp(cVPCPlatform.String(), "WIN32") == 0) {
+            SetMacro("PLATSUBDIR", "\\win32", false);
+        } else {
+            SetMacro("PLATSUBDIR", "\\win64", false);
+        }
+        SetConditional("WINDOWS");
 
-    SetMacro("_DLL_EXT", ".dll", true);
-    SetMacro("_IMPLIB_EXT", ".lib", false);
+        SetMacro("_DLL_EXT", ".dll", true);
+        SetMacro("_IMPLIB_EXT", ".lib", false);
 
-    SetMacro("_IMPLIB_PREFIX", "", false);
-    SetMacro("_IMPLIB_DLL_PREFIX", "", false);
+        SetMacro("_IMPLIB_PREFIX", "", false);
+        SetMacro("_IMPLIB_DLL_PREFIX", "", false);
 
-    SetMacro("_STATICLIB_PREFIX", "", false);
-    SetMacro("_STATICLIB_EXT", ".lib", false);
+        SetMacro("_STATICLIB_PREFIX", "", false);
+        SetMacro("_STATICLIB_EXT", ".lib", false);
 
-    SetMacro("_EXE_EXT", ".exe", false);
+        SetMacro("_EXE_EXT", ".exe", false);
 
-    SetMacro("_EXTERNAL_DLL_EXT", ".dll", true);
-    SetMacro("_EXTERNAL_IMPLIB_EXT", ".lib", false);
-    SetMacro("_EXTERNAL_STATICLIB_EXT", ".lib", false);
+        SetMacro("_EXTERNAL_DLL_EXT", ".dll", true);
+        SetMacro("_EXTERNAL_IMPLIB_EXT", ".lib", false);
+        SetMacro("_EXTERNAL_STATICLIB_EXT", ".lib", false);
 
-  } else if (V_stricmp(cVPCPlatform.String(), "X360") == 0) {
-    SetMacro("PLATSUBDIR", "\\x360", false);
+    } else if (V_stricmp(cVPCPlatform.String(), "X360") == 0) {
+        SetMacro("PLATSUBDIR", "\\x360", false);
 
-    SetMacro("_DLL_EXT", "_360.dll", true);
-    SetMacro("_IMPLIB_EXT", "_360.lib", false);
+        SetMacro("_DLL_EXT", "_360.dll", true);
+        SetMacro("_IMPLIB_EXT", "_360.lib", false);
 
-    SetMacro("_IMPLIB_PREFIX", "", false);
+        SetMacro("_IMPLIB_PREFIX", "", false);
 
-    SetMacro("_IMPLIB_DLL_PREFIX", "", false);
+        SetMacro("_IMPLIB_DLL_PREFIX", "", false);
 
-    SetMacro("_STATICLIB_PREFIX", "", false);
-    SetMacro("_STATICLIB_EXT", "_360.lib", false);
+        SetMacro("_STATICLIB_PREFIX", "", false);
+        SetMacro("_STATICLIB_EXT", "_360.lib", false);
 
-    SetMacro("_EXE_EXT", ".exe", false);
-  } else if (V_stricmp(cVPCPlatform.String(), "PS3") == 0) {
-    SetMacro("PLATSUBDIR", "\\ps3", false);
+        SetMacro("_EXE_EXT", ".exe", false);
+    } else if (V_stricmp(cVPCPlatform.String(), "PS3") == 0) {
+        SetMacro("PLATSUBDIR", "\\ps3", false);
 
-    SetMacro("_DLL_EXT", "_ps3.sprx", true);
-    SetMacro("_IMPLIB_EXT", "_ps3.lib", false);
+        SetMacro("_DLL_EXT", "_ps3.sprx", true);
+        SetMacro("_IMPLIB_EXT", "_ps3.lib", false);
 
-    SetMacro("_IMPLIB_PREFIX", "", false);
-    SetMacro("_IMPLIB_DLL_PREFIX", "", false);
+        SetMacro("_IMPLIB_PREFIX", "", false);
+        SetMacro("_IMPLIB_DLL_PREFIX", "", false);
 
-    SetMacro("_STATICLIB_PREFIX", "", false);
-    SetMacro("_STATICLIB_EXT", "_ps3.lib", false);
+        SetMacro("_STATICLIB_PREFIX", "", false);
+        SetMacro("_STATICLIB_EXT", "_ps3.lib", false);
 
-    SetMacro("_EXE_EXT", ".self", false);
-  } else if (V_stricmp(cVPCPlatform.String(), "LINUX32") == 0 ||
-             V_stricmp(cVPCPlatform.String(), "LINUX64") == 0) {
-    bool IsLinux32 = (V_stricmp(cVPCPlatform.String(), "LINUX32") == 0);
+        SetMacro("_EXE_EXT", ".self", false);
+    } else if (V_stricmp(cVPCPlatform.String(), "LINUX32") == 0 ||
+        V_stricmp(cVPCPlatform.String(), "LINUX64") == 0) {
+        bool IsLinux32 = (V_stricmp(cVPCPlatform.String(), "LINUX32") == 0);
 
-    SetMacro("PLATSUBDIR", IsLinux32 ? "\\linux32" : "\\linux64", false);
+        SetMacro("PLATSUBDIR", IsLinux32 ? "\\linux32" : "\\linux64", false);
 
-    SetConditional("LINUXALL");
-    if (m_bDedicatedBuild) {
-      SetConditional("DEDICATED");
-    }
-    SetConditional("POSIX");
+        SetConditional("LINUXALL");
+        if (m_bDedicatedBuild) {
+            SetConditional("DEDICATED");
+        }
+        SetConditional("POSIX");
 
-    SetMacro("LINUX", "1", true);
-    SetMacro("_LINUX", "1", true);
-    SetMacro("POSIX", "1", true);
-    SetMacro("_POSIX", "1", true);
+        SetMacro("LINUX", "1", true);
+        SetMacro("_LINUX", "1", true);
+        SetMacro("POSIX", "1", true);
+        SetMacro("_POSIX", "1", true);
 
-    const char *str3264 = IsLinux32 ? "" : "64";
-    const char *strSrv = m_bAppendSrvToDedicated ? "_srv" : "";
-    CFmtStrN<128> strDso("%s%s.so", strSrv, str3264);
-    CFmtStrN<128> strLib("%s%s.a", strSrv, str3264);
+        const char *str3264 = IsLinux32 ? "" : "64";
+        const char *strSrv = m_bAppendSrvToDedicated ? "_srv" : "";
+        CFmtStrN<128> strDso("%s%s.so", strSrv, str3264);
+        CFmtStrN<128> strLib("%s%s.a", strSrv, str3264);
 
-    SetMacro("_DLL_EXT", strDso.Access(), true);
-    SetMacro("_IMPLIB_EXT", strDso.Access(), false);
-    SetMacro("_STATICLIB_EXT", strLib.Access(), false);
+        SetMacro("_DLL_EXT", strDso.Access(), true);
+        SetMacro("_IMPLIB_EXT", strDso.Access(), false);
+        SetMacro("_STATICLIB_EXT", strLib.Access(), false);
 
-    // Extensions for external dependencies like libsteam_api.so (not
-    // libsteam_api_ds.so). VPC_Keyword_Folder in projectscript.cpp will check
-    // for ImpLibExternal or LibExternal and use these prefixes instead of
-    // _ds.so if they exist.
-    SetMacro("_EXTERNAL_DLL_EXT", ".so", true);
-    SetMacro("_EXTERNAL_IMPLIB_EXT", ".so", false);
-    SetMacro("_EXTERNAL_STATICLIB_EXT", ".a", false);
+        // Extensions for external dependencies like libsteam_api.so (not
+        // libsteam_api_ds.so). VPC_Keyword_Folder in projectscript.cpp will check
+        // for ImpLibExternal or LibExternal and use these prefixes instead of
+        // _ds.so if they exist.
+        SetMacro("_EXTERNAL_DLL_EXT", ".so", true);
+        SetMacro("_EXTERNAL_IMPLIB_EXT", ".so", false);
+        SetMacro("_EXTERNAL_STATICLIB_EXT", ".a", false);
 
-    // SetMacro( "_STATICLIB_PREFIX", "lib", false );
-    SetMacro("_STATICLIB_PREFIX", "", false);
+        // SetMacro( "_STATICLIB_PREFIX", "lib", false );
+        SetMacro("_STATICLIB_PREFIX", "", false);
 
-    SetMacro("_IMPLIB_PREFIX", "lib", false);
-    SetMacro("_IMPLIB_DLL_PREFIX", "lib", false);
-    SetMacro("_EXE_EXT", "", false);
-    SetMacro("_SYM_EXT", ".dbg", false);
+        SetMacro("_IMPLIB_PREFIX", "lib", false);
+        SetMacro("_IMPLIB_DLL_PREFIX", "lib", false);
+        SetMacro("_EXE_EXT", "", false);
+        SetMacro("_SYM_EXT", ".dbg", false);
 
-    SetConditional("GL");
-  } else if (V_stricmp(cVPCPlatform.String(), "ANDROID") == 0) {
-    SetConditional("LINUXALL");
-    if (m_bDedicatedBuild) {
-      SetConditional("DEDICATED");
-    }
-    SetConditional("POSIX");
-    SetConditional("ANDROID");
+        SetConditional( "GL" );
+    } else if ( V_stricmp( cVPCPlatform.String(), "ANDROID" ) == 0 ) {
+        SetConditional("LINUXALL");
+        if ( m_bDedicatedBuild ) {
+            SetConditional("DEDICATED");
+        }
+        SetConditional("POSIX");
+        SetConditional("ANDROID");
 
-    SetMacro("LINUX", "1", true);
-    SetMacro("_LINUX", "1", true);
-    SetMacro("POSIX", "1", true);
-    SetMacro("_POSIX", "1", true);
-    SetMacro("ANDROID", "1", true);
-    SetMacro("_ANDROID", "1", true);
+        SetMacro("LINUX", "1", true);
+        SetMacro("_LINUX", "1", true);
+        SetMacro("POSIX", "1", true);
+        SetMacro("_POSIX", "1", true);
+        SetMacro("ANDROID", "1", true);
+        SetMacro("_ANDROID", "1", true);
 
-    SetMacro("_DLL_EXT", "_an.so", true);
-    SetMacro("_IMPLIB_EXT", "_an.so", false);
+        SetMacro("_DLL_EXT", "_an.so", true);
+        SetMacro("_IMPLIB_EXT", "_an.so", false);
 
-    SetMacro("_IMPLIB_PREFIX", "lib", false);
-    SetMacro("_IMPLIB_DLL_PREFIX", "lib", false);
+        SetMacro("_IMPLIB_PREFIX", "lib", false);
+        SetMacro("_IMPLIB_DLL_PREFIX", "lib", false);
 
-    SetMacro("_STATICLIB_PREFIX", "lib", false);
-    SetMacro("_STATICLIB_EXT", "_an.a", false);
+        SetMacro("_STATICLIB_PREFIX", "lib", false);
+        SetMacro("_STATICLIB_EXT", "_an.a", false);
 
-    SetMacro("_EXE_EXT", "", false);
+        SetMacro("_EXE_EXT", "", false);
 
-    SetMacro("_EXTERNAL_DLL_EXT", "_an.so", true);
-    SetMacro("_EXTERNAL_IMPLIB_EXT", "_an.so", false);
-    SetMacro("_EXTERNAL_STATICLIB_EXT", "_an.a", false);
+        SetMacro("_EXTERNAL_DLL_EXT", "_an.so", true);
+        SetMacro("_EXTERNAL_IMPLIB_EXT", "_an.so", false);
+        SetMacro("_EXTERNAL_STATICLIB_EXT", "_an.a", false);
 
-    // and is a cross-compiled target
-    SetConditional("CROSS_COMPILED");
-    SetMacro("CROSS_COMPILED", "1", true);
-    SetMacro("_CROSS_COMPILED", "1", true);
+        // and is a cross-compiled target
+        SetConditional("CROSS_COMPILED");
+        SetMacro("CROSS_COMPILED", "1", true);
+        SetMacro("_CROSS_COMPILED", "1", true);
 
-    SetConditional("GL");
-  } else if (V_stricmp(cVPCPlatform.String(), "CYGWIN") == 0) {
-    SetMacro("PLATSUBDIR", "\\cygwin", false);
+        SetConditional("GL");
+    } else if (V_stricmp(cVPCPlatform.String(), "CYGWIN") == 0) {
+        SetMacro("PLATSUBDIR", "\\cygwin", false);
 
-    SetConditional("CYGWIN");
-    SetConditional("CYGWIN_WINDOWS_TARGET");
-    SetConditional("DEDICATED");
-    SetConditional("POSIX");
+        SetConditional("CYGWIN");
+        SetConditional("CYGWIN_WINDOWS_TARGET");
+        SetConditional("DEDICATED");
+        SetConditional("POSIX");
 
-    SetMacro("CYGWIN", "1", true);
-    SetMacro("_CYGWIN", "1", true);
-    SetMacro("CYGWIN_WINDOWS_TARGET", "1", true);
-    SetMacro("_CYGWIN_WINDOWS_TARGET", "1", true);
-    SetMacro("POSIX", "1", true);
-    SetMacro("_POSIX", "1", true);
+        SetMacro("CYGWIN", "1", true);
+        SetMacro("_CYGWIN", "1", true);
+        SetMacro("CYGWIN_WINDOWS_TARGET", "1", true);
+        SetMacro("_CYGWIN_WINDOWS_TARGET", "1", true);
+        SetMacro("POSIX", "1", true);
+        SetMacro("_POSIX", "1", true);
 
-    SetMacro("_DLL_EXT", ".dll", true);
-    SetMacro("_IMPLIB_EXT", ".dll.a", false);
+        SetMacro("_DLL_EXT", ".dll", true);
+        SetMacro("_IMPLIB_EXT", ".dll.a", false);
 
-    SetMacro("_IMPLIB_DLL_PREFIX", "", false);
-    SetMacro("_IMPLIB_PREFIX", "lib", false);
+        SetMacro("_IMPLIB_DLL_PREFIX", "", false);
+        SetMacro("_IMPLIB_PREFIX", "lib", false);
 
-    // SetMacro( "_STATICLIB_PREFIX", "lib", false );
-    SetMacro("_STATICLIB_PREFIX", "", false);
-    SetMacro("_STATICLIB_EXT", ".a", false);
+        // SetMacro( "_STATICLIB_PREFIX", "lib", false );
+        SetMacro("_STATICLIB_PREFIX", "", false);
+        SetMacro("_STATICLIB_EXT", ".a", false);
 
-    SetMacro("_EXE_EXT", ".exe", false);
-  }
+        SetMacro("_EXE_EXT", ".exe", false);
+      }
 
   // DO NOT INTEGRATE OR TAKE THIS - THIS IS TEMP PORTING GLUE.
-  {
+
     // CERT has been decided to be a platform permutation of RETAIL.
     // The DOTA S1 scripts are not in a clean enough condition to place this
     // logic there. The S2 scripts have it there along with similar common
@@ -2013,12 +2032,12 @@ void CVPC::SetMacrosAndConditionals() {
         FindOrCreateConditional("RETAIL", false, CONDITIONAL_CUSTOM);
     if (pRetailConditional && pRetailConditional->m_bDefined &&
         (!V_stricmp(cVPCPlatform.String(), "X360") ||
-         !V_stricmp(cVPCPlatform.String(), "PS3"))) {
-      // CERT is a restricted console RETAIL concept, with publisher dictated
-      // rules, there is no CERT process for non-console platforms.
-      SetConditional("CERT");
+            !V_stricmp(cVPCPlatform.String(), "PS3"))) {
+        // CERT is a restricted console RETAIL concept, with publisher dictated
+        // rules, there is no CERT process for non-console platforms.
+        SetConditional("CERT");
     }
-  }
+ 
 
   // Set VPCGAME macro based on target game
   if (m_bEnableVpcGameMacro) {

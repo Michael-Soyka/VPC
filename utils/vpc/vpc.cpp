@@ -179,7 +179,7 @@ bool CVPC::Init( int argc, const char **argv ) {
         SetConsoleTitle( "Moon Project Creator" );
     #endif
 
-    Log_Msg( LOG_VPC, "VPC - Moon Project Creator for " );
+    Log_Msg( LOG_VPC, "MPC - Moon Project Creator for " );
     Log_Msg( LOG_VPC, "Visual Studio and Make\n" );
     #ifdef GIT_SHA
         Log_Msg( LOG_VPC, 

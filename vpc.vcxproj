@@ -252,6 +252,7 @@
     <ProjectGuid>{539cfc5a-5aae-4446-8925-96ea63d96ebb}</ProjectGuid>
     <RootNamespace>vpc</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>mpc</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

@@ -189,10 +189,10 @@ bool CVPC::Init( int argc, const char **argv ) {
             "Build: %s %s\n", __DATE__, __TIME__ );
     #endif
     Log_Msg( LOG_VPC,
-            "(C) Copyright 1996-2024, Valve Corporation, All rights reserved.\n" );
+            "(C) Copyright 1996-2025, Valve Corporation, All rights reserved.\n" );
     #ifdef OTM
         Log_Msg( LOG_VPC,
-                "(C) Copyright 2024, Moon-6 Team, All rights reserved.\n" );
+                "(C) Copyright 2020-2025, Moon-6 Team, All rights reserved.\n" );
     #endif
     Log_Msg( LOG_VPC, "\n" );
 

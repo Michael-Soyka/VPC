@@ -132,7 +132,7 @@ class CKeyValuesSystem : public IKeyValuesSystem {
   int CaseInsensitiveHash(const char *string, intp iBounds);
 
   struct MemoryLeakTracker_t {
-    int nameIndex;
+    intp nameIndex;
     void *pMem;
   };
   static bool MemoryLeakTrackerLessFunc(const MemoryLeakTracker_t &lhs,
@@ -152,9 +152,10 @@ class CKeyValuesSystem : public IKeyValuesSystem {
 //-----------------------------------------------------------------------------
 // Instance singleton and expose interface to rest of code
 //-----------------------------------------------------------------------------
-static CKeyValuesSystem g_KeyValuesSystem;
-
-IKeyValuesSystem *KeyValuesSystem() { return &g_KeyValuesSystem; }
+IKeyValuesSystem *KeyValuesSystem() {
+  static CKeyValuesSystem g_KeyValuesSystem;
+  return &g_KeyValuesSystem;
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: Constructor
@@ -167,7 +168,7 @@ CKeyValuesSystem::CKeyValuesSystem()
   MEM_ALLOC_CREDIT();
   // initialize hash table
   m_HashTable.AddMultipleToTail(2047);
-  for (int i = 0; i < m_HashTable.Count(); i++) {
+  for (intp i = 0; i < m_HashTable.Count(); i++) {
     m_HashTable[i].stringIndex = 0;
     m_HashTable[i].next = NULL;
   }
@@ -275,15 +276,12 @@ HKeySymbol CKeyValuesSystem::GetSymbolForString(const char *name,
   MEM_ALLOC_CREDIT();
 
   int hash = CaseInsensitiveHash(name, m_HashTable.Count());
-  int i = 0;
   hash_item_t *item = &m_HashTable[hash];
 
   while (true) {
     if (!stricmp(name, (char *)m_Strings.GetBase() + item->stringIndex)) {
       return (HKeySymbol)item->stringIndex;
     }
-
-    i++;
 
     if (item->next == NULL) {
       if (!bCreate) {
@@ -334,7 +332,6 @@ HKeySymbol CKeyValuesSystem::GetSymbolForStringCaseSensitive(
 
   int hash = CaseInsensitiveHash(name, m_HashTable.Count());
   intp numNameStringBytes = -1;
-  int i = 0;
   hash_item_t *item = &m_HashTable[hash];
   while (1) {
     char *pCompareString = (char *)m_Strings.GetBase() + item->stringIndex;
@@ -394,8 +391,6 @@ HKeySymbol CKeyValuesSystem::GetSymbolForStringCaseSensitive(
       }
     }
 
-    i++;
-
     if (item->next == NULL) {
       // not found
       if (!bCreate) return -1;
@@ -444,8 +439,8 @@ const char *CKeyValuesSystem::GetStringForSymbol(HKeySymbol symbol) {
 //-----------------------------------------------------------------------------
 // Purpose: adds KeyValues record into global list so we can track memory leaks
 //-----------------------------------------------------------------------------
-void CKeyValuesSystem::AddKeyValuesToMemoryLeakList(void *pMem,
-                                                    HKeySymbol name) {
+void CKeyValuesSystem::AddKeyValuesToMemoryLeakList(
+    [[maybe_unused]] void *pMem, [[maybe_unused]] HKeySymbol name) {
 #ifdef _DEBUG
   // only track the memory leaks in debug builds
   MemoryLeakTracker_t item = {name, pMem};
@@ -456,7 +451,8 @@ void CKeyValuesSystem::AddKeyValuesToMemoryLeakList(void *pMem,
 //-----------------------------------------------------------------------------
 // Purpose: used to track memory leaks
 //-----------------------------------------------------------------------------
-void CKeyValuesSystem::RemoveKeyValuesFromMemoryLeakList(void *pMem) {
+void CKeyValuesSystem::RemoveKeyValuesFromMemoryLeakList(
+    [[maybe_unused]] void *pMem) {
 #ifdef _DEBUG
   // only track the memory leaks in debug builds
   MemoryLeakTracker_t item = {0, pMem};

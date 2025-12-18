@@ -872,13 +872,13 @@ class CVProfScope : public CVProfSnMarkerScope {
 // CVProfNode, inline methods
 //
 
-inline CVProfNode::CVProfNode(const tchar *pszName, int detailLevel,
+inline CVProfNode::CVProfNode(const tchar *pszName, int,
                               CVProfNode *pParent,
                               const tchar *pBudgetGroupName, int budgetFlags)
     : m_pszName(pszName),
+      m_nRecursions(0),
       m_nCurFrameCalls(0),
       m_nPrevFrameCalls(0),
-      m_nRecursions(0),
       m_pParent(pParent),
       m_pChild(NULL),
       m_pSibling(NULL),
@@ -1094,7 +1094,8 @@ inline void CVProfile::Stop() {
 
 inline void CVProfile::EnterScope(const tchar *pszName, int detailLevel,
                                   const tchar *pBudgetGroupName,
-                                  bool bAssertAccounted, int budgetFlags) {
+                                  [[maybe_unused]] bool bAssertAccounted,
+                                  int budgetFlags) {
   if ((m_enabled != 0 || !m_fAtRoot) &&
       InTargetThread())  // if became disabled, need to unwind back to root
                          // before stopping

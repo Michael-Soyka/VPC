@@ -112,15 +112,15 @@ class CUtlSortVector : public BaseVector {
 template <class T, class LessFunc, class BaseVector>
 CUtlSortVector<T, LessFunc, BaseVector>::CUtlSortVector(intp nGrowSize,
                                                         intp initSize)
-    : m_pLessContext(NULL),
-      BaseVector(nGrowSize, initSize),
+    : BaseVector(nGrowSize, initSize),
+      m_pLessContext(NULL),
       m_bNeedsSort(false) {}
 
 template <class T, class LessFunc, class BaseVector>
 CUtlSortVector<T, LessFunc, BaseVector>::CUtlSortVector(T* pMemory,
                                                         intp numElements)
-    : m_pLessContext(NULL),
-      BaseVector(pMemory, numElements),
+    : BaseVector(pMemory, numElements),
+      m_pLessContext(NULL),
       m_bNeedsSort(false) {}
 
 //-----------------------------------------------------------------------------
@@ -157,9 +157,9 @@ intp CUtlSortVector<T, LessFunc, BaseVector>::InsertNoSort(const T& src) {
 }
 
 template <class T, class LessFunc, class BaseVector>
-void CUtlSortVector<T, LessFunc, BaseVector>::QuickSort(LessFunc& less,
-                                                        intp nLower,
-                                                        intp nUpper) {
+void CUtlSortVector<T, LessFunc, BaseVector>::QuickSort(
+    LessFunc& less, [[maybe_unused]] intp nLower,
+    [[maybe_unused]] intp nUpper) {
 #ifdef _WIN32
   typedef int(__cdecl * QSortCompareFunc_t)(void* context, const void*,
                                             const void*);

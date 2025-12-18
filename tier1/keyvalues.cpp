@@ -9,19 +9,20 @@
 #define _wtoi64(arg) wcstoll(arg, NULL, 10)
 #endif
 
-#include "keyvalues.h"
+#include "tier1/keyvalues.h"
 #include "filesystem.h"
 #include "vstdlib/ikeyvaluessystem.h"
 
 #include "color.h"
 #include <cstdlib>
 #include <cctype>
+#include <cinttypes>
 #include "tier1/convar.h"
 #include "tier0/dbg.h"
 #include "tier0/mem.h"
-#include "utlvector.h"
-#include "utlbuffer.h"
-#include "utlhash.h"
+#include "tier1/utlvector.h"
+#include "tier1/utlbuffer.h"
+#include "tier1/utlhash.h"
 #include "vstdlib/vstrtools.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -164,8 +165,8 @@ class CLeakTrack {
   }
 
   void RemoveKv(KeyValues *kv) {
-    int c = keys.Count();
-    for (int i = 0; i < c; i++) {
+    intp c = keys.Count();
+    for (intp i = 0; i < c; i++) {
       if (keys[i].kv == kv) {
         keys.Remove(i);
         break;
@@ -196,8 +197,8 @@ class CKeyValuesGrowableStringTable {
  public:
   // Constructor
   CKeyValuesGrowableStringTable()
-      : m_vecStrings((intp)0, (intp)512 * 1024),
-        m_hashLookup(2048, 0, 0, m_Functor, m_Functor) {
+      : m_hashLookup(2048, 0, 0, m_Functor, m_Functor),
+        m_vecStrings((intp)0, (intp)512 * 1024) {
     m_vecStrings.AddToTail('\0');
   }
 
@@ -254,7 +255,7 @@ class CKeyValuesGrowableStringTable {
     }
 
     // The hash function.
-    unsigned int operator()(intp nItem) const {
+    unsigned int operator()(intp) const {
       return HashStringCaseless(m_pchCurString);
     }
 
@@ -755,7 +756,8 @@ void KeyValues::RecursiveSaveToFile(IBaseFileSystem *filesystem, FileHandle_t f,
 
           char buf[32];
           // write "0x" + 16 char 0-padded hex encoded 64 bit value
-          V_snprintf(buf, sizeof(buf), "0x%016llX", *((uint64 *)dat->m_sValue));
+          V_snprintf(buf, sizeof(buf), "0x%016" PRIx64,
+                     *((uint64 *)dat->m_sValue));
 
           INTERNALWRITE(buf, V_strlen(buf));
           INTERNALWRITE("\"\n", 2);
@@ -1149,12 +1151,12 @@ uint64 KeyValues::GetUint64(const char *keyName, uint64 defaultValue) {
     switch (dat->m_iDataType) {
       case TYPE_STRING: {
         uint64 uiResult = 0ull;
-        sscanf(dat->m_sValue, "%llu", &uiResult);
+        sscanf(dat->m_sValue, "%" SCNu64, &uiResult);
         return uiResult;
       }
       case TYPE_WSTRING: {
         uint64 uiResult = 0ull;
-        swscanf(dat->m_wsValue, L"%llu", &uiResult);
+        swscanf(dat->m_wsValue, L"%" SCNu64, &uiResult);
         return uiResult;
       }
       case TYPE_FLOAT:
@@ -1243,11 +1245,11 @@ const char *KeyValues::GetString(const char *keyName,
         SetString(keyName, buf);
         break;
       case TYPE_PTR:
-        V_snprintf(buf, sizeof(buf), "%lld", (int64)dat->m_pValue);
+        V_snprintf(buf, sizeof(buf), "%" PRIi64, (int64)dat->m_pValue);
         SetString(keyName, buf);
         break;
       case TYPE_UINT64:
-        V_snprintf(buf, sizeof(buf), "%llu", *((uint64 *)(dat->m_sValue)));
+        V_snprintf(buf, sizeof(buf), "%" PRIu64, *((uint64 *)(dat->m_sValue)));
         SetString(keyName, buf);
         break;
 
@@ -1303,8 +1305,8 @@ const wchar_t *KeyValues::GetWString(const char *keyName,
       case TYPE_STRING: {
         intp bufSize = V_strlen(dat->m_sValue) + 1;
         wchar_t *pWBuf = new wchar_t[bufSize];
-        int result =
-            V_UTF8ToUnicode(dat->m_sValue, pWBuf, bufSize * sizeof(wchar_t));
+        int result = V_UTF8ToUnicode(
+            dat->m_sValue, pWBuf, bufSize * static_cast<intp>(sizeof(wchar_t)));
         if (result >= 0)  // may be a zero length string
         {
           SetWString(keyName, pWBuf);
@@ -2112,7 +2114,7 @@ void KeyValues::RecursiveLoadFromBuffer(char const *resourceName,
       char *pFEnd;                      // pos where float scan ended
       const char *pSEnd = value + len;  // pos where token ends
 
-      int ival = strtol(value, &pIEnd, 10);
+      long ival = strtol(value, &pIEnd, 10);
       float fval = (float)strtod(value, &pFEnd);
       bool bOverflow =
           (ival == LONG_MAX || ival == LONG_MIN) && errno == ERANGE;
@@ -2146,7 +2148,7 @@ void KeyValues::RecursiveLoadFromBuffer(char const *resourceName,
         dat->m_flValue = fval;
         dat->m_iDataType = TYPE_FLOAT;
       } else if (pIEnd == pSEnd && !bOverflow) {
-        dat->m_iValue = ival;
+        dat->m_iValue = static_cast<int>(ival);
         dat->m_iDataType = TYPE_INT;
       } else {
         dat->m_iDataType = TYPE_STRING;
@@ -2516,8 +2518,9 @@ void *KeyValues::operator new(size_t iAllocSize) {
   return KeyValuesSystem()->AllocKeyValuesMemory(iAllocSize);
 }
 
-void *KeyValues::operator new(size_t iAllocSize, int nBlockUse,
-                              const char *pFileName, int nLine) {
+void *KeyValues::operator new(size_t iAllocSize, int,
+                              [[maybe_unused]] const char *pFileName,
+                              [[maybe_unused]] int nLine) {
   MemAlloc_PushAllocDbgInfo(pFileName, nLine);
   void *p = KeyValuesSystem()->AllocKeyValuesMemory(iAllocSize);
   MemAlloc_PopAllocDbgInfo();
@@ -2533,8 +2536,7 @@ void KeyValues::operator delete(void *pMem) {
   KeyValuesSystem()->FreeKeyValuesMemory(pMem);
 }
 
-void KeyValues::operator delete(void *pMem, int nBlockUse,
-                                const char *pFileName, int nLine) {
+void KeyValues::operator delete(void *pMem, int, const char *, int) {
   KeyValuesSystem()->FreeKeyValuesMemory(pMem);
 }
 
@@ -2799,7 +2801,8 @@ KeyValues *KeyValues::FromString(char const *szName, char const *szStringVal,
       szStringVal = szVarName + 1;
       break;
     }
-    V_strncpy(chName, szVarName, MIN((intp)sizeof(chName), szEnd - szVarName + 1));
+    V_strncpy(chName, szVarName,
+              MIN((intp)sizeof(chName), szEnd - szVarName + 1));
     szVarName = chName;
     szStringVal = szEnd;
 
@@ -2833,7 +2836,7 @@ KeyValues *KeyValues::FromString(char const *szName, char const *szStringVal,
     }
     continue;
 
-  do_sub_key : {
+  do_sub_key: {
     KeyValues *pSubKey = KeyValues::FromString(szVarName, szStringVal, &szEnd);
     if (pSubKey) {
       kv->AddSubKey(pSubKey);
@@ -2930,7 +2933,7 @@ bool IKeyValuesDumpContextAsText::KvWriteValue(KeyValues *val,
     case KeyValues::TYPE_UINT64: {
       uint64 n = val->GetUint64();
       char *chBuffer = (char *)stackalloc(128);
-      V_snprintf(chBuffer, 128, "u64( %lld = 0x%llX )", n, n);
+      V_snprintf(chBuffer, 128, "u64( %" PRIu64 " = 0x%" PRIX64 " )", n, n);
       if (!KvWriteText(chBuffer)) return false;
     } break;
 

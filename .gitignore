@@ -397,4 +397,8 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
-_build
+# CMake artefacts
+out/
+
+# Resource compiler artefacts
+RC[a-z0-9]*

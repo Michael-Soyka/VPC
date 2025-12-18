@@ -8,6 +8,7 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdarg>
+#include <cstddef>  // std::ptrdiff_t
 
 #include <algorithm>
 
@@ -15,7 +16,6 @@
 #include <process.h>
 #else
 #include <cstdlib>
-#define stricmp strcasecmp
 #endif
 
 #include "tier0/memdbgon.h"
@@ -36,7 +36,7 @@ static void BuildReplacements(const char *token, char *replacements) {
   // Now go pickup the any files that exist, but were non-matches
   *replacements = '\0';
 
-  for (ptrdiff_t i = 0; g_szArrPlatforms[i] != nullptr; i++) {
+  for (std::ptrdiff_t i = 0; g_szArrPlatforms[i] != nullptr; i++) {
     char path[MAX_PATH];
     char path_expanded[MAX_PATH];
 
@@ -315,7 +315,6 @@ size_t Sys_LoadTextFileWithIncludes(const char *file_name, char **buffer,
   *buffer = result_buffer;                               // tell caller
 
   // copy all strings and null terminate
-  size_t line{0};
   StringNode_t *next;
   for (it = file_lines; it; it = next) {
     next = it->m_pNext;
@@ -324,7 +323,6 @@ size_t Sys_LoadTextFileWithIncludes(const char *file_name, char **buffer,
 
     memcpy(result_buffer, it->m_Text, length);
     result_buffer += length;
-    line++;
 
     // Cleanup the line..
     // delete [] (unsigned char*)pCur;

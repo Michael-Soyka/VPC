@@ -7,6 +7,7 @@
 #if !defined(STEAM) && !defined(NO_MALLOC_OVERRIDE)
 
 #include <cstring>
+#include <cstddef>  // std::ptrdiff_t
 #include "tier0/dbg.h"
 #if defined(USE_STACK_TRACES)
 #include "tier0/stackstats.h"
@@ -59,7 +60,7 @@
 // be sure to disable frame pointer omission for all projects. "vpc /nofpo" when
 // using stack traces #define USE_STACK_TRACES
 // or:
-//#define USE_STACK_TRACES_DETAILED
+// #define USE_STACK_TRACES_DETAILED
 const size_t STACK_TRACE_LENGTH = 32;
 #endif
 
@@ -239,13 +240,27 @@ char *StackDescribe(void *const *ppAddresses, int nMaxAddresses) {
 
 //-----------------------------------------------------------------------------
 
+// The size of the no-man's land used in unaligned and aligned allocations:
+static size_t const no_mans_land_size = 4;
+
 // NOTE: This exactly mirrors the dbg header in the MSDEV crt
 // eventually when we write our own allocator, we can kill this
+// See struct _CrtMemBlockHeader at debug_heap.cpp
 struct CrtDbgMemHeader_t {
-  unsigned char m_Reserved[8];
+  CrtDbgMemHeader_t *m_pBlockHeaderNext;
+  CrtDbgMemHeader_t *m_pBlockHeaderPrev;
   const char *m_pFileName;
   int m_nLineNumber;
-  unsigned char m_Reserved2[16];
+
+  int m_BlockUse;
+  size_t m_DataSize;
+
+  long m_RequestNumber;
+  unsigned char m_Gap[no_mans_land_size];
+
+  // Followed by:
+  // unsigned char    m_data[_data_size];
+  // unsigned char    m_AnotherGap[no_mans_land_size];
 };
 
 struct Sentinal_t {
@@ -285,13 +300,14 @@ struct DbgMemHeader_t
   size_t nLogicalSize;
 #if defined(USE_STACK_TRACES)
   unsigned int nStatIndex;
-  byte reserved[16 - (sizeof(unsigned int) *
-                      2)];  // MS allocator always returns mem aligned on 16
-                            // bytes, which some of our code depends on
+  byte reserved[16 - sizeof(size_t) -
+                sizeof(unsigned int)];  // MS allocator always returns mem
+                                        // aligned on 16 bytes, which some of
+                                        // our code depends on
 #else
-  byte reserved[16 - sizeof(unsigned int)];  // MS allocator always returns mem
-                                             // aligned on 16 bytes, which some
-                                             // of our code depends on
+  byte reserved[16 - sizeof(size_t)];  // MS allocator always returns mem
+                                       // aligned on 16 bytes, which some
+                                       // of our code depends on
 #endif
   Sentinal_t sentinal;
 };
@@ -355,7 +371,7 @@ void LMDValidateBlock(DbgMemHeader_t *pHeader, bool bFreeList) {
 #elif defined(OSX)
 DbgMemHeader_t *GetCrtDbgMemHeader(void *pMem);
 #else
-#define GetCrtDbgMemHeader(pMem) ((DbgMemHeader_t *)(pMem)-1)
+#define GetCrtDbgMemHeader(pMem) ((DbgMemHeader_t *)(pMem) - 1)
 #endif
 
 #if defined(USE_STACK_TRACES)
@@ -739,7 +755,7 @@ class CNoRecurseAllocator {
   pointer allocate(size_type num, const void * = 0) {
     return (pointer)DebugAlloc(num * sizeof(T));
   }
-  void deallocate(pointer p, size_type num) { DebugFree(p); }
+  void deallocate(pointer p, size_type) { DebugFree(p); }
   void construct(pointer p, const T &value) { new ((void *)p) T(value); }
   void destroy(pointer p) { p->~T(); }
 };
@@ -765,9 +781,11 @@ class CStringLess {
 
 //-----------------------------------------------------------------------------
 
+#ifdef _MSC_VER
 #pragma warning(disable : 4074)  // warning C4074: initializers put in compiler
                                  // reserved initialization area
 #pragma init_seg(compiler)
+#endif  // _MSC_VER
 
 //-----------------------------------------------------------------------------
 // NOTE! This should never be called directly from leaf code
@@ -801,8 +819,8 @@ class CDbgMemAlloc : public IMemAlloc {
   virtual void *Expand_NoLongerSupported(void *pMem, size_t nSize,
                                          const char *pFileName, int nLine);
 
-  virtual void *RegionAlloc(int region, size_t nSize) { return Alloc(nSize); }
-  virtual void *RegionAlloc(int region, size_t nSize, const char *pFileName,
+  virtual void *RegionAlloc(int, size_t nSize) { return Alloc(nSize); }
+  virtual void *RegionAlloc(int, size_t nSize, const char *pFileName,
                             int nLine) {
     return Alloc(nSize, pFileName, nLine);
   }
@@ -850,14 +868,14 @@ class CDbgMemAlloc : public IMemAlloc {
   }
 
   virtual void CompactIncremental() {}
-  virtual void OutOfMemory(size_t nBytesAttempted = 0) {}
+  virtual void OutOfMemory([[maybe_unused]] size_t nBytesAttempted = 0) {}
 
-  virtual MemAllocFailHandler_t SetAllocFailHandler(
-      MemAllocFailHandler_t pfnMemAllocFailHandler) {
+  virtual MemAllocFailHandler_t SetAllocFailHandler(MemAllocFailHandler_t) {
     return NULL;
   }  // debug heap doesn't attempt retries
 
-  void SetStatsExtraInfo(const char *pMapName, const char *pComment) {
+  void SetStatsExtraInfo([[maybe_unused]] const char *pMapName,
+                         [[maybe_unused]] const char *pComment) {
 #if defined(_MEMTEST)
     strncpy(s_szStatsMapName, pMapName, sizeof(s_szStatsMapName));
     s_szStatsMapName[sizeof(s_szStatsMapName) - 1] = '\0';
@@ -913,12 +931,30 @@ class CDbgMemAlloc : public IMemAlloc {
   };
 
   struct MemInfoKey_FileLine_t {
-    MemInfoKey_FileLine_t(const char *pFileName, int line)
-        : m_pFileName(pFileName), m_nLine(line) {}
+    MemInfoKey_FileLine_t(const char *pFileName, int line) noexcept
+        : m_pFileName(_strdup(pFileName)), m_nLine(line) {}
+    ~MemInfoKey_FileLine_t() noexcept {
+      free(const_cast<void *>(reinterpret_cast<const void *>(m_pFileName)));
+    }
+
+    MemInfoKey_FileLine_t(MemInfoKey_FileLine_t &&k) noexcept
+        : m_pFileName{k.m_pFileName}, m_nLine{k.m_nLine} {
+      k.m_pFileName = nullptr;
+      k.m_nLine = 0;
+    }
+    MemInfoKey_FileLine_t(MemInfoKey_FileLine_t &k) = delete;
+
+    MemInfoKey_FileLine_t &operator=(MemInfoKey_FileLine_t &&k) noexcept {
+      std::swap(k.m_pFileName, m_pFileName);
+      std::swap(k.m_nLine, m_nLine);
+      return *this;
+    }
+    MemInfoKey_FileLine_t &operator=(MemInfoKey_FileLine_t &k) = delete;
+
     bool operator<(const MemInfoKey_FileLine_t &key) const {
       int iret = V_tier0_stricmp(m_pFileName, key.m_pFileName);
-      if (iret < 0) return true;
 
+      if (iret < 0) return true;
       if (iret > 0) return false;
 
       return m_nLine < key.m_nLine;
@@ -1001,7 +1037,7 @@ class CDbgMemAlloc : public IMemAlloc {
   virtual size_t ComputeMemoryUsedBy(char const *pchSubStr);
 
   virtual IVirtualMemorySection *AllocateVirtualMemorySection(
-      size_t numMaxBytes) {
+      [[maybe_unused]] size_t numMaxBytes) {
 #if defined(_GAMECONSOLE)
     extern IVirtualMemorySection *
     VirtualMemoryManager_AllocateVirtualMemorySection(size_t numMaxBytes);
@@ -1011,7 +1047,7 @@ class CDbgMemAlloc : public IMemAlloc {
 #endif
   }
 
-  virtual int GetGenericMemoryStats(GenericMemoryStat_t **ppMemoryStats) {
+  virtual int GetGenericMemoryStats(GenericMemoryStat_t **) {
     // TODO: reuse code from GlobalMemoryStatus (though this is only really
     // useful when using CStdMemAlloc...)
     return 0;
@@ -1136,9 +1172,9 @@ struct CDbgMemAlloc_GetRawCrtMemOverrideFuncs_Early {
 //-----------------------------------------------------------------------------
 // Singleton...
 //-----------------------------------------------------------------------------
-static CDbgMemAlloc s_DbgMemAlloc CONSTRUCT_EARLY;
-
 #ifdef _PS3
+
+static CDbgMemAlloc s_DbgMemAlloc CONSTRUCT_EARLY;
 
 IMemAlloc *g_pMemAllocInternalPS3 = &s_DbgMemAlloc;
 PLATFORM_OVERRIDE_MEM_ALLOC_INTERNAL_PS3_IMPL
@@ -1146,9 +1182,15 @@ PLATFORM_OVERRIDE_MEM_ALLOC_INTERNAL_PS3_IMPL
 #else  // !_PS3
 
 #ifndef TIER0_VALIDATE_HEAP
-IMemAlloc *g_pMemAlloc CONSTRUCT_EARLY = &s_DbgMemAlloc;
+IMemAlloc *g_pMemAlloc() {
+  static CDbgMemAlloc s_DbgMemAlloc;
+  return &s_DbgMemAlloc;
+}
 #else
-IMemAlloc *g_pActualAlloc = &s_DbgMemAlloc;
+IMemAlloc *g_pActualAlloc() {
+  static CDbgMemAlloc s_DbgMemAlloc;
+  return &s_DbgMemAlloc;
+}
 #endif
 
 #endif  // _PS3
@@ -1295,9 +1337,7 @@ void CDbgMemAlloc::Free(void *pMem) {
   //	free( pMem );
 }
 
-void *CDbgMemAlloc::Expand_NoLongerSupported(void *pMem, size_t nSize) {
-  return NULL;
-}
+void *CDbgMemAlloc::Expand_NoLongerSupported(void *, size_t) { return NULL; }
 
 //-----------------------------------------------------------------------------
 // Force file + line information for an allocation
@@ -1435,12 +1475,15 @@ const char *CDbgMemAlloc::FindOrCreateFilename(const char *pFileName) {
 #endif  // #if defined( USE_STACK_TRACES_DETAILED )
 
   char *pszFilenameCopy;
-  Filenames_t::const_iterator iter = m_Filenames.find(pFileName);
+  auto iter = m_Filenames.find(pFileName);
   if (iter == m_Filenames.end()) {
     size_t nLen = strlen(pFileName) + 1;
     pszFilenameCopy = (char *)DebugAlloc(nLen);
-    memcpy(pszFilenameCopy, pFileName, nLen);
-    m_Filenames.insert(pszFilenameCopy);
+
+    if (pszFilenameCopy) {
+      memcpy(pszFilenameCopy, pFileName, nLen);
+      m_Filenames.insert(pszFilenameCopy);
+    }
   } else {
     pszFilenameCopy = (char *)(*iter);
   }
@@ -1453,12 +1496,9 @@ const char *CDbgMemAlloc::FindOrCreateFilename(const char *pFileName) {
 //-----------------------------------------------------------------------------
 CDbgMemAlloc::MemInfo_t &CDbgMemAlloc::FindOrCreateEntry(const char *pFileName,
                                                          int line) {
-  // Oh how I love crazy STL. retval.first == the StatMapIter_t in the std::pair
-  // retval.first->second == the MemInfo_t that's part of the StatMapIter_t
-  std::pair<StatMapIter_FileLine_t, bool> retval;
-  retval = m_StatMap_FileLine.insert(StatMapEntry_FileLine_t(
-      MemInfoKey_FileLine_t(pFileName, line), MemInfo_t()));
-  return retval.first->second;
+  auto [key, value] = m_StatMap_FileLine.emplace(
+      MemInfoKey_FileLine_t(pFileName, line), MemInfo_t());
+  return key->second;
 }
 
 #if defined(USE_STACK_TRACES)
@@ -1522,8 +1562,11 @@ void CDbgMemAlloc::RegisterDeallocation(unsigned int nStatIndex,
 }
 #endif
 
-void CDbgMemAlloc::RegisterAllocation(MemInfo_t &info, size_t nLogicalSize,
-                                      size_t nActualSize, unsigned nTime) {
+void CDbgMemAlloc::RegisterAllocation([[maybe_unused]] MemInfo_t &info,
+                                      [[maybe_unused]] size_t nLogicalSize,
+                                      [[maybe_unused]] size_t nActualSize,
+                                      [[maybe_unused]] unsigned nTime) {
+#ifndef __SANITIZE_ADDRESS__
   ++info.m_nCurrentCount;
   ++info.m_nTotalCount;
   if (info.m_nCurrentCount > info.m_nPeakCount) {
@@ -1561,10 +1604,14 @@ void CDbgMemAlloc::RegisterAllocation(MemInfo_t &info, size_t nLogicalSize,
   }
 
   info.m_nTime += nTime;
+#endif
 }
 
-void CDbgMemAlloc::RegisterDeallocation(MemInfo_t &info, size_t nLogicalSize,
-                                        size_t nActualSize, unsigned nTime) {
+void CDbgMemAlloc::RegisterDeallocation([[maybe_unused]] MemInfo_t &info,
+                                        [[maybe_unused]] size_t nLogicalSize,
+                                        [[maybe_unused]] size_t nActualSize,
+                                        [[maybe_unused]] unsigned nTime) {
+#ifndef __SANITIZE_ADDRESS__
   --info.m_nCurrentCount;
   info.m_nCurrentSize -= nLogicalSize;
 
@@ -1587,6 +1634,7 @@ void CDbgMemAlloc::RegisterDeallocation(MemInfo_t &info, size_t nLogicalSize,
   info.m_nOverheadSize -= (nActualSize - nLogicalSize);
 
   info.m_nTime += nTime;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1596,11 +1644,16 @@ void CDbgMemAlloc::RegisterDeallocation(MemInfo_t &info, size_t nLogicalSize,
 const char *CDbgMemAlloc::GetAllocatonFileName(void *pMem) {
   if (!pMem) return "";
 
+#ifndef __SANITIZE_ADDRESS__
   CrtDbgMemHeader_t *pHeader = GetCrtDbgMemHeader(pMem);
   if (pHeader->m_pFileName)
     return pHeader->m_pFileName;
   else
     return g_pszUnknown;
+#else
+
+  return g_pszUnknown;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1609,8 +1662,13 @@ const char *CDbgMemAlloc::GetAllocatonFileName(void *pMem) {
 int CDbgMemAlloc::GetAllocatonLineNumber(void *pMem) {
   if (!pMem) return 0;
 
+#ifndef __SANITIZE_ADDRESS__
   CrtDbgMemHeader_t *pHeader = GetCrtDbgMemHeader(pMem);
   return pHeader->m_nLineNumber;
+#else
+
+  return 0;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1880,7 +1938,7 @@ void *CDbgMemAlloc::ReallocAlign(void *pMem, size_t nSize, size_t align,
 }
 #endif
 
-void CDbgMemAlloc::Free(void *pMem, const char * /*pFileName*/, int nLine) {
+void CDbgMemAlloc::Free(void *pMem, const char *, int) {
   if (!pMem) return;
 
   HEAP_LOCK();
@@ -1913,8 +1971,8 @@ void CDbgMemAlloc::Free(void *pMem, const char * /*pFileName*/, int nLine) {
 #endif
 }
 
-void *CDbgMemAlloc::Expand_NoLongerSupported(void *pMem, size_t nSize,
-                                             const char *pFileName, int nLine) {
+void *CDbgMemAlloc::Expand_NoLongerSupported(void *, size_t, const char *,
+                                             int) {
   return NULL;
 }
 
@@ -2073,21 +2131,17 @@ void CDbgMemAlloc::DumpMemInfo(const char *pAllocationName, int line,
 //-----------------------------------------------------------------------------
 size_t CDbgMemAlloc::ComputeMemoryUsedBy(char const *pchSubStr) {
   size_t total = 0;
-  StatMapIter_FileLine_t iter = m_StatMap_FileLine.begin();
-  while (iter != m_StatMap_FileLine.end()) {
-    if (!pchSubStr || strstr(iter->first.m_pFileName, pchSubStr)) {
-      total += iter->second.m_nCurrentSize;
+  for (auto &[key, info] : m_StatMap_FileLine) {
+    if (!pchSubStr || strstr(key.m_pFileName, pchSubStr)) {
+      total += info.m_nCurrentSize;
     }
-    iter++;
   }
   return total;
 }
 
 void CDbgMemAlloc::DumpFileStats() {
-  StatMapIter_FileLine_t iter = m_StatMap_FileLine.begin();
-  while (iter != m_StatMap_FileLine.end()) {
-    DumpMemInfo(iter->first.m_pFileName, iter->first.m_nLine, iter->second);
-    iter++;
+  for (auto &[key, info] : m_StatMap_FileLine) {
+    DumpMemInfo(key.m_pFileName, key.m_nLine, info);
   }
 }
 
@@ -2688,7 +2742,7 @@ void __attribute__((constructor)) mem_init(void) {
 void *operator new(size_t nSize, int nBlockUse, const char *pFileName,
                    int nLine) {
   set_osx_hooks();
-  void *pMem = g_pMemAlloc->Alloc(nSize, pFileName, nLine);
+  void *pMem = g_pMemAlloc()->Alloc(nSize, pFileName, nLine);
   set_override_hooks();
   return pMem;
 }
@@ -2696,15 +2750,16 @@ void *operator new(size_t nSize, int nBlockUse, const char *pFileName,
 void *operator new[](size_t nSize, int nBlockUse, const char *pFileName,
                      int nLine) {
   set_osx_hooks();
-  void *pMem = g_pMemAlloc->Alloc(nSize, pFileName, nLine);
+  void *pMem = g_pMemAlloc()->Alloc(nSize, pFileName, nLine);
   set_override_hooks();
   return pMem;
 }
 
 #endif  // OSX
 
-int GetAllocationCallStack(void *mem, void **pCallStackOut,
-                           int iMaxEntriesOut) {
+int GetAllocationCallStack([[maybe_unused]] void *mem,
+                           [[maybe_unused]] void **pCallStackOut,
+                           [[maybe_unused]] int iMaxEntriesOut) {
 #if defined(USE_MEM_DEBUG) && (defined(USE_STACK_TRACES))
   return s_DbgMemAlloc.GetCallStackForIndex(
       GetAllocationStatIndex_Internal(mem), pCallStackOut, iMaxEntriesOut);

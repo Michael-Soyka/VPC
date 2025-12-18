@@ -15,8 +15,9 @@
 #endif
 
 #include "tier0/dbg.h"
-#include "memstack.h"
-#include "utlmap.h"
+#include "tier1/memstack.h"
+#include "tier1/utlmap.h"
+#include <cstddef>  // std::ptrdiff_t
 #include "tier0/memdbgon.h"
 
 #ifdef _WIN32
@@ -35,21 +36,24 @@ MEMALLOC_DEFINE_EXTERNAL_TRACKING(CMemoryStack);
 //-----------------------------------------------------------------------------
 
 CMemoryStack::CMemoryStack()
-    : m_pBase(NULL),
-      m_pNextAlloc(NULL),
-      m_pAllocLimit(NULL),
+    : m_pNextAlloc(NULL),
       m_pCommitLimit(NULL),
-      m_alignment(16),
-#ifdef MEMSTACK_VIRTUAL_MEMORY_AVAILABLE
-      m_commitSize(0),
-      m_minCommit(0),
-#ifdef _PS3
-      m_pVirtualMemorySection(NULL),
-#endif
-#endif
-      m_maxSize(0),
+      m_pAllocLimit(NULL),
+      m_pBase(NULL),
       m_bRegisteredAllocation(false),
-      m_bPhysical(false) {
+      m_bPhysical(false),
+      m_maxSize(0),
+      m_alignment(16)
+#ifdef MEMSTACK_VIRTUAL_MEMORY_AVAILABLE
+      ,
+      m_commitSize(0),
+      m_minCommit(0)
+#ifdef _PS3
+      ,
+      m_pVirtualMemorySection(NULL)
+#endif
+#endif
+{
   m_pszAllocOwner = _strdup("CMemoryStack unattributed");
 }
 
@@ -118,7 +122,7 @@ bool CMemoryStack::Init(const char *pszAllocOwner, size_t maxSize,
                                           PAGE_NOACCESS);
 #else
   m_pVirtualMemorySection =
-      g_pMemAlloc->AllocateVirtualMemorySection(m_maxSize);
+      g_pMemAlloc()->AllocateVirtualMemorySection(m_maxSize);
   if (!m_pVirtualMemorySection) {
     Warning("AllocateVirtualMemorySection failed( size=%d )\n", m_maxSize);
     Assert(0);
@@ -129,7 +133,7 @@ bool CMemoryStack::Init(const char *pszAllocOwner, size_t maxSize,
 #endif
   if (!m_pBase) {
 #if !defined(NO_MALLOC_OVERRIDE)
-    g_pMemAlloc->OutOfMemory();
+    g_pMemAlloc()->OutOfMemory();
 #endif
     return false;
   }
@@ -148,7 +152,7 @@ bool CMemoryStack::Init(const char *pszAllocOwner, size_t maxSize,
 #endif
     if (!bInitialCommitSucceeded) {
 #if !defined(NO_MALLOC_OVERRIDE)
-      g_pMemAlloc->OutOfMemory(initialCommit);
+      g_pMemAlloc()->OutOfMemory(initialCommit);
 #endif
       return false;
     }
@@ -258,14 +262,14 @@ intp CMemoryStack::GetSize() {
 
 //-------------------------------------
 
-bool CMemoryStack::CommitTo(byte *pNextAlloc) RESTRICT {
+bool CMemoryStack::CommitTo(byte *pNextAlloc) {
   if (m_bPhysical) {
-    return NULL;
+    return false;
   }
 
 #ifdef MEMSTACK_VIRTUAL_MEMORY_AVAILABLE
   unsigned char *pNewCommitLimit = AlignValue(pNextAlloc, m_commitSize);
-  ptrdiff_t commitSize = pNewCommitLimit - m_pCommitLimit;
+  std::ptrdiff_t commitSize = pNewCommitLimit - m_pCommitLimit;
 
   if (m_pCommitLimit + commitSize > m_pAllocLimit) {
     return false;
@@ -283,7 +287,7 @@ bool CMemoryStack::CommitTo(byte *pNextAlloc) RESTRICT {
 #endif
     if (!bAllocationSucceeded) {
 #if !defined(NO_MALLOC_OVERRIDE)
-      g_pMemAlloc->OutOfMemory(commitSize);
+      g_pMemAlloc()->OutOfMemory(commitSize);
 #endif
       return false;
     }
@@ -297,7 +301,7 @@ bool CMemoryStack::CommitTo(byte *pNextAlloc) RESTRICT {
 
     if (pNewCommitLimit < m_pCommitLimit) {
       RegisterDeallocation(false);
-      ptrdiff_t decommitSize = m_pCommitLimit - pNewCommitLimit;
+      std::ptrdiff_t decommitSize = m_pCommitLimit - pNewCommitLimit;
 #ifdef _WIN32
       VirtualFree(pNewCommitLimit, decommitSize, MEM_DECOMMIT);
 #else

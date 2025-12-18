@@ -2,6 +2,7 @@
 
 #include "tier0/dbg.h"
 #include "vstdlib/vstrtools.h"
+#include <cstddef>  // std::ptrdiff_t
 
 #if defined(_WIN32) && !defined(_X360)
 #include "winlite.h"
@@ -30,10 +31,14 @@ class DummyInitL10N {
 } s_dummyInitL10N;
 #endif
 
+#include "tier0/memdbgon.h"
+
 // Purpose: Converts a UTF8 string into a unicode string
 int V_UTF8ToUnicode(const char *pUTF8, wchar_t *pwchDest,
-                    int cubDestSizeInBytes) {
+                    intp cubDestSizeInBytes) {
   if (!pUTF8) return 0;
+
+  Assert(cubDestSizeInBytes <= INT_MAX / 2);
 
   AssertValidStringPtr(pUTF8);
   AssertValidWritePtr(pwchDest);
@@ -42,7 +47,7 @@ int V_UTF8ToUnicode(const char *pUTF8, wchar_t *pwchDest,
 
 #ifdef _WIN32
   int cchResult = MultiByteToWideChar(CP_UTF8, 0, pUTF8, -1, pwchDest,
-                                      cubDestSizeInBytes / sizeof(wchar_t));
+                                      static_cast<int>(cubDestSizeInBytes) / static_cast<int>(sizeof(wchar_t)));
 #elif defined(_PS3)
   size_t cchResult = cubDestSizeInBytes / sizeof(uint16),
          cchSrc = V_strlen(pUTF8) + 1;
@@ -57,7 +62,7 @@ int V_UTF8ToUnicode(const char *pUTF8, wchar_t *pwchDest,
   size_t nMaxUTF8 = strlen(pUTF8) + 1;
   char *pIn = (char *)pUTF8;
   char *pOut = (char *)pwchDest;
-  if (conv_t > 0) {
+  if (conv_t != reinterpret_cast<iconv_t>(-1)) {
     cchResult = 0;
     cchResult = iconv(conv_t, &pIn, &nMaxUTF8, &pOut, &nLenUnicde);
     iconv_close(conv_t);
@@ -99,7 +104,7 @@ int V_UnicodeToUTF8(const wchar_t *pUnicode, char *pUTF8,
     size_t nMaxUTF8 = cubDestSizeInBytes;
     char *pIn = (char *)pUnicode;
     char *pOut = (char *)pUTF8;
-    if (conv_t > 0) {
+    if (conv_t != reinterpret_cast<iconv_t>(-1)) {
       cchResult = 0;
       cchResult = iconv(conv_t, &pIn, &nLenUnicde, &pOut, &nMaxUTF8);
       iconv_close(conv_t);
@@ -137,7 +142,7 @@ intp V_UCS2ToUnicode(const ucs2 *pUCS2, wchar_t *pUnicode,
   size_t nMaxUTF8 = cubDestSizeInBytes;
   char *pIn = (char *)pUCS2;
   char *pOut = (char *)pUnicode;
-  if (conv_t > 0) {
+  if (conv_t != reinterpret_cast<iconv_t>(-1)) {
     cchResult = 0;
     cchResult = iconv(conv_t, &pIn, &nLenUnicde, &pOut, &nMaxUTF8);
     iconv_close(conv_t);
@@ -169,7 +174,7 @@ int V_UnicodeToUCS2(const wchar_t *pUnicode, int cubSrcInBytes, char *pUCS2,
   size_t nMaxUCS2 = cubDestSizeInBytes;
   char *pIn = (char *)pUnicode;
   char *pOut = pUCS2;
-  if (conv_t > 0) {
+  if (conv_t != reinterpret_cast<iconv_t>(-1)) {
     cchResult = 0;
     cchResult = iconv(conv_t, &pIn, &nLenUnicde, &pOut, &nMaxUCS2);
     iconv_close(conv_t);
@@ -217,7 +222,7 @@ VSTRTOOLS_INTERFACE int V_UCS2ToUTF8(const ucs2 *pUCS2, char *pUTF8,
   size_t nMaxUTF8 = cubDestSizeInBytes;
   char *pIn = (char *)pUCS2;
   char *pOut = (char *)pUTF8;
-  if (conv_t > 0) {
+  if (conv_t != reinterpret_cast<iconv_t>(-1)) {
     cchResult = 0;
     cchResult = iconv(conv_t, &pIn, &nLenUnicde, &pOut, &nMaxUTF8);
     iconv_close(conv_t);
@@ -259,7 +264,7 @@ VSTRTOOLS_INTERFACE int V_UTF8ToUCS2(const char *pUTF8,
   size_t nMaxUTF8 = cubDestSizeInBytes;
   char *pIn = (char *)pUTF8;
   char *pOut = (char *)pUCS2;
-  if (conv_t > 0) {
+  if (conv_t != reinterpret_cast<iconv_t>(-1)) {
     cchResult = 0;
     cchResult = iconv(conv_t, &pIn, &nLenUnicde, &pOut, &nMaxUTF8);
     iconv_close(conv_t);
@@ -282,7 +287,7 @@ VSTRTOOLS_INTERFACE void *V_UTF8_strncpy(char *pDest, const char *pSrc,
   strncpy(pDest, pSrc, nMaxBytes);
 
   // https://en.wikipedia.org/wiki/UTF-8
-  ptrdiff_t end = nMaxBytes - 1;
+  std::ptrdiff_t end = nMaxBytes - 1;
   pDest[end] = 0;
 
   int nBytesSeen = 0, nBytesExpected = 0;

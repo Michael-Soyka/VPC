@@ -6,7 +6,7 @@
 
 #if !defined(STEAM) && !defined(NO_MALLOC_OVERRIDE)
 
-//#include <malloc.h>
+// #include <malloc.h>
 
 #include <algorithm>
 
@@ -41,7 +41,7 @@
 #define USE_DLMALLOC
 #define MEMALLOC_SEGMENT_MIXED
 #define MBH_SIZE_MB (45 + MBYTES_STEAM_MBH_USAGE)
-//#define MEMALLOC_REGIONS
+// #define MEMALLOC_REGIONS
 #endif  // _WIN32 || _PS3
 
 #ifndef USE_DLMALLOC
@@ -217,9 +217,12 @@ void *operator new[](unsigned int nSize, int nBlockUse, const char *pFileName,
 //-----------------------------------------------------------------------------
 // Singleton...
 //-----------------------------------------------------------------------------
+
+#ifdef _MSC_VER
 #pragma warning(disable : 4074)  // warning C4074: initializers put in compiler
                                  // reserved initialization area
 #pragma init_seg(compiler)
+#endif  // _MSC_VER
 
 #if MEM_SBH_ENABLED
 CSmallBlockPool<CStdMemAlloc::CFixedAllocator<MBYTES_PRIMARY_SBH, true>>::
@@ -237,9 +240,9 @@ CSmallBlockPool<CStdMemAlloc::CVirtualAllocator>::SharedData_t CSmallBlockPool<
 #endif
 #endif  // MEM_SBH_ENABLED
 
-static CStdMemAlloc s_StdMemAlloc CONSTRUCT_EARLY;
-
 #ifdef _PS3
+
+static CStdMemAlloc s_StdMemAlloc CONSTRUCT_EARLY;
 
 MemOverrideRawCrtFunctions_t *g_pMemOverrideRawCrtFns;
 IMemAlloc *g_pMemAllocInternalPS3 = &s_StdMemAlloc;
@@ -248,9 +251,15 @@ PLATFORM_OVERRIDE_MEM_ALLOC_INTERNAL_PS3_IMPL
 #else  // !_PS3
 
 #ifndef TIER0_VALIDATE_HEAP
-IMemAlloc *g_pMemAlloc = &s_StdMemAlloc;
+IMemAlloc *g_pMemAlloc() {
+  static CStdMemAlloc s_StdMemAlloc;
+  return &s_StdMemAlloc;
+}
 #else
-IMemAlloc *g_pActualAlloc = &s_StdMemAlloc;
+IMemAlloc *g_pActualAlloc() {
+  static CStdMemAlloc s_StdMemAlloc;
+  return &s_StdMemAlloc;
+}
 #endif
 
 #endif  // _PS3
@@ -315,9 +324,10 @@ size_t CSmallBlockPool<CAllocator>::GetBlockSize() {
 // Define VALIDATE_SBH_FREE_LIST to a given block size to validate that pool's
 // freelist (it'll crash on the next alloc/free after the list is corrupted)
 // NOTE: this may affect perf more than USE_LIGHT_MEM_DEBUG
-//#define VALIDATE_SBH_FREE_LIST 320
+// #define VALIDATE_SBH_FREE_LIST 320
 template <typename CAllocator>
-void CSmallBlockPool<CAllocator>::ValidateFreelist(SharedData_t *pSharedData) {
+void CSmallBlockPool<CAllocator>::ValidateFreelist(
+    [[maybe_unused]] SharedData_t *pSharedData) {
 #ifdef VALIDATE_SBH_FREE_LIST
   if (m_nBlockSize != VALIDATE_SBH_FREE_LIST) return;
   static int count = 0;
@@ -1245,7 +1255,7 @@ size_t LMDComputeHeaderSize(size_t align = 0) {
   // For aligned allocs, the header is preceded by padding which maintains
   // alignment
   if (align > LMD_MAX_ALIGN)
-    s_StdMemAlloc.SetCRTAllocFailed(
+    g_pMemAlloc()->SetCRTAllocFailed(
         align);  // TODO: could convert alignment to exponent to get around
                  // this, or use a flag for alignments over 1KB or 1MB...
   return ((sizeof(AllocHeader_t) + (align - 1)) & ~(align - 1));
@@ -1354,16 +1364,16 @@ bool LMDValidateHeap() {
 void *LMDRealloc(void *pMem, size_t nSize, size_t align = 0,
                  const char *pszModule = g_pszUnknown, int line = 0) {
   if (nSize == 0) {
-    s_StdMemAlloc.Free(pMem);
+    g_pMemAlloc()->Free(pMem);
     return NULL;
   }
   void *pNew;
 #ifdef MEMALLOC_SUPPORTS_ALIGNED_ALLOCATIONS
   if (align)
-    pNew = s_StdMemAlloc.AllocAlign(nSize, align, pszModule, line);
+    pNew = g_pMemAlloc()->AllocAlign(nSize, align, pszModule, line);
   else
 #endif  // MEMALLOC_SUPPORTS_ALIGNED_ALLOCATIONS
-    pNew = s_StdMemAlloc.Alloc(nSize, pszModule, line);
+    pNew = g_pMemAlloc()->Alloc(nSize, pszModule, line);
   if (!pMem) {
     return pNew;
   }
@@ -1373,7 +1383,7 @@ void *LMDRealloc(void *pMem, size_t nSize, size_t align = 0,
   }
   size_t nCopySize = MIN(nSize, pHeader->nBytes);
   memcpy(pNew, pMem, nCopySize);
-  s_StdMemAlloc.Free(pMem, pszModule, line);
+  g_pMemAlloc()->Free(pMem, pszModule, line);
   return pNew;
 }
 
@@ -1381,7 +1391,8 @@ void *LMDRealloc(void *pMem, size_t nSize, size_t align = 0,
 
 #define INTERNAL_INLINE FORCEINLINE
 #define UsingLMD() false
-FORCEINLINE size_t LMDAdjustSize(size_t &nBytes, size_t align = 0) {
+FORCEINLINE size_t LMDAdjustSize(size_t &nBytes,
+                                 [[maybe_unused]] size_t align = 0) {
   return nBytes;
 }
 #define LMDNoteAlloc(pHeader, ...) (pHeader)
@@ -1389,11 +1400,14 @@ FORCEINLINE size_t LMDAdjustSize(size_t &nBytes, size_t align = 0) {
 #define LMDGetSize(pHeader) (size_t)(-1)
 #define LMDToHeader(pHeader) (pHeader)
 #define LMDFromHeader(pHeader) (pHeader)
-#define LMDValidateHeap() (true)
+#define LMDValidateHeap() do {} while (false)
 #define LMDPushAllocDbgInfo(pFileName, nLine) ((void)0)
 #define LMDPopAllocDbgInfo() ((void)0)
-FORCEINLINE void *LMDRealloc(void *pMem, size_t nSize, size_t align = 0,
-                             const char *pszModule = NULL, int line = 0) {
+FORCEINLINE void *LMDRealloc([[maybe_unused]] void *pMem,
+                             [[maybe_unused]] size_t nSize,
+                             [[maybe_unused]] size_t align = 0,
+                             [[maybe_unused]] const char *pszModule = NULL,
+                             [[maybe_unused]] int line = 0) {
   return NULL;
 }
 
@@ -1403,7 +1417,8 @@ FORCEINLINE void *LMDRealloc(void *pMem, size_t nSize, size_t align = 0,
 // Internal versions
 //-----------------------------------------------------------------------------
 
-INTERNAL_INLINE void *CStdMemAlloc::InternalAllocFromPools(size_t nSize) {
+INTERNAL_INLINE void *CStdMemAlloc::InternalAllocFromPools(
+    [[maybe_unused]] size_t nSize) {
 #if MEM_SBH_ENABLED
   void *pMem;
 
@@ -1431,7 +1446,8 @@ INTERNAL_INLINE void *CStdMemAlloc::InternalAllocFromPools(size_t nSize) {
   return NULL;
 }
 
-INTERNAL_INLINE void *CStdMemAlloc::InternalAlloc(int region, size_t nSize) {
+INTERNAL_INLINE void *CStdMemAlloc::InternalAlloc([[maybe_unused]] int region,
+                                                  size_t nSize) {
   PROFILE_ALLOC(Malloc);
 
   void *pMem;
@@ -1659,14 +1675,17 @@ void CStdMemAlloc::Free(void *pMem) {
   CStdMemAlloc::InternalFree(pMem);
 }
 
-void *CStdMemAlloc::Expand_NoLongerSupported(void *pMem, size_t nSize) {
+void *CStdMemAlloc::Expand_NoLongerSupported([[maybe_unused]] void *pMem,
+                                             [[maybe_unused]] size_t nSize) {
   return NULL;
 }
 
 //-----------------------------------------------------------------------------
 // Debug versions
 //-----------------------------------------------------------------------------
-void *CStdMemAlloc::Alloc(size_t nSize, const char *pFileName, int nLine) {
+void *CStdMemAlloc::Alloc([[maybe_unused]] size_t nSize,
+                          [[maybe_unused]] const char *pFileName,
+                          [[maybe_unused]] int nLine) {
   size_t nAdjustedSize = LMDAdjustSize(nSize);
   return LMDNoteAlloc(CStdMemAlloc::InternalAlloc(DEF_REGION, nAdjustedSize),
                       nSize, 0, pFileName, nLine);
@@ -1696,13 +1715,15 @@ void *CStdMemAlloc::ReallocAlign(void *pMem, size_t nSize, size_t align,
 }
 #endif  // MEMALLOC_SUPPORTS_ALIGNED_ALLOCATIONS
 
-void CStdMemAlloc::Free(void *pMem, const char *pFileName, int nLine) {
+void CStdMemAlloc::Free(void *pMem, [[maybe_unused]] const char *pFileName,
+                        [[maybe_unused]] int nLine) {
   pMem = LMDNoteFree(pMem);
   CStdMemAlloc::InternalFree(pMem);
 }
 
-void *CStdMemAlloc::Expand_NoLongerSupported(void *pMem, size_t nSize,
-                                             const char *pFileName, int nLine) {
+void *CStdMemAlloc::Expand_NoLongerSupported([[maybe_unused]] void *pMem,
+                                             [[maybe_unused]] size_t nSize,
+    [[maybe_unused]] const char *pFileName, [[maybe_unused]] int nLine) {
   return NULL;
 }
 
@@ -1715,8 +1736,9 @@ void *CStdMemAlloc::RegionAlloc(int region, size_t nSize) {
                       nSize);
 }
 
-void *CStdMemAlloc::RegionAlloc(int region, size_t nSize, const char *pFileName,
-                                int nLine) {
+void *CStdMemAlloc::RegionAlloc(int region, [[maybe_unused]] size_t nSize,
+                                [[maybe_unused]] const char *pFileName,
+                                [[maybe_unused]] int nLine) {
   size_t nAdjustedSize = LMDAdjustSize(nSize);
   return LMDNoteAlloc(CStdMemAlloc::InternalAlloc(region, nAdjustedSize), nSize,
                       0, pFileName, nLine);
@@ -1767,7 +1789,8 @@ size_t CStdMemAlloc::GetSize(void *pMem) {
 //-----------------------------------------------------------------------------
 // Force file + line information for an allocation
 //-----------------------------------------------------------------------------
-void CStdMemAlloc::PushAllocDbgInfo(const char *pFileName, int nLine) {
+void CStdMemAlloc::PushAllocDbgInfo([[maybe_unused]] const char *pFileName,
+                                    [[maybe_unused]] int nLine) {
   LMDPushAllocDbgInfo(pFileName, nLine);
 }
 
@@ -1776,16 +1799,22 @@ void CStdMemAlloc::PopAllocDbgInfo() { LMDPopAllocDbgInfo(); }
 //-----------------------------------------------------------------------------
 // FIXME: Remove when we make our own heap! Crt stuff we're currently using
 //-----------------------------------------------------------------------------
-int32 CStdMemAlloc::CrtSetBreakAlloc(int32 lNewBreakAlloc) { return 0; }
-
-int CStdMemAlloc::CrtSetReportMode(int nReportType, int nReportMode) {
+int32 CStdMemAlloc::CrtSetBreakAlloc([[maybe_unused]] int32 lNewBreakAlloc) {
   return 0;
 }
 
-int CStdMemAlloc::CrtIsValidHeapPointer(const void *pMem) { return 1; }
+int CStdMemAlloc::CrtSetReportMode([[maybe_unused]] int nReportType,
+                                   [[maybe_unused]] int nReportMode) {
+  return 0;
+}
 
-int CStdMemAlloc::CrtIsValidPointer(const void *pMem, unsigned int size,
-                                    int access) {
+int CStdMemAlloc::CrtIsValidHeapPointer([[maybe_unused]] const void *pMem) {
+  return 1;
+}
+
+int CStdMemAlloc::CrtIsValidPointer([[maybe_unused]] const void *pMem,
+                                    [[maybe_unused]] unsigned int size,
+                                    [[maybe_unused]] int access) {
   return 1;
 }
 
@@ -1811,17 +1840,25 @@ int CStdMemAlloc::CrtCheckMemory(void) {
   return 1;
 }
 
-int CStdMemAlloc::CrtSetDbgFlag(int nNewFlag) { return 0; }
+int CStdMemAlloc::CrtSetDbgFlag([[maybe_unused]] int nNewFlag) { return 0; }
 
-void CStdMemAlloc::CrtMemCheckpoint(_CrtMemState *pState) {}
+void CStdMemAlloc::CrtMemCheckpoint([[maybe_unused]] _CrtMemState *pState) {}
 
 // FIXME: Remove when we have our own allocator
-void *CStdMemAlloc::CrtSetReportFile(int nRptType, void *hFile) { return 0; }
+void *CStdMemAlloc::CrtSetReportFile([[maybe_unused]] int nRptType,
+                                     [[maybe_unused]] void *hFile) {
+  return 0;
+}
 
-void *CStdMemAlloc::CrtSetReportHook(void *pfnNewHook) { return 0; }
+void *CStdMemAlloc::CrtSetReportHook([[maybe_unused]] void *pfnNewHook) {
+  return 0;
+}
 
-int CStdMemAlloc::CrtDbgReport(int nRptType, const char *szFile, int nLine,
-                               const char *szModule, const char *pMsg) {
+int CStdMemAlloc::CrtDbgReport([[maybe_unused]] int nRptType,
+                               [[maybe_unused]] const char *szFile,
+                               [[maybe_unused]] int nLine,
+                               [[maybe_unused]] const char *szModule,
+                               [[maybe_unused]] const char *pMsg) {
   return 0;
 }
 
@@ -1891,7 +1928,7 @@ void CStdMemAlloc::DumpStatsFileBase(char const *pchFileBase) {
 }
 
 IVirtualMemorySection *CStdMemAlloc::AllocateVirtualMemorySection(
-    size_t numMaxBytes) {
+    [[maybe_unused]] size_t numMaxBytes) {
 #if defined(_GAMECONSOLE)
   extern IVirtualMemorySection *
   VirtualMemoryManager_AllocateVirtualMemorySection(size_t numMaxBytes);
@@ -1901,11 +1938,12 @@ IVirtualMemorySection *CStdMemAlloc::AllocateVirtualMemorySection(
 #endif
 }
 
-size_t CStdMemAlloc::ComputeMemoryUsedBy(char const *pchSubStr) {
+size_t CStdMemAlloc::ComputeMemoryUsedBy(
+    [[maybe_unused]] char const *pchSubStr) {
   return 0;  // dbg heap only.
 }
 
-static inline size_t ExtraDevkitMemory(void) {
+[[maybe_unused]] static inline size_t ExtraDevkitMemory(void) {
 #if defined(_PS3)
   // 213MB are available in retail mode, so adjust free mem to reflect that even
   // if we're in devkit mode
@@ -1924,7 +1962,7 @@ void CStdMemAlloc::GlobalMemoryStatus(size_t *pUsedMemory,
                                       size_t *pFreeMemory) {
   if (!pUsedMemory || !pFreeMemory) return;
 
-  size_t dlMallocFree = 0;
+  [[maybe_unused]] size_t dlMallocFree = 0;
 #if defined(USE_DLMALLOC)
   // Account for free memory contained within DLMalloc's FIRST region. The
   // rationale is as follows:
@@ -1986,7 +2024,7 @@ void CStdMemAlloc::GlobalMemoryStatus(size_t *pUsedMemory,
 #define MAX_GENERIC_MEMORY_STATS 64
 GenericMemoryStat_t g_MemStats[MAX_GENERIC_MEMORY_STATS];
 int g_nMemStats = 0;
-static inline int AddGenericMemoryStat(const char *name, int value) {
+[[maybe_unused]] static inline int AddGenericMemoryStat(const char *name, int value) {
   Assert(g_nMemStats < MAX_GENERIC_MEMORY_STATS);
   if (g_nMemStats < MAX_GENERIC_MEMORY_STATS) {
     g_MemStats[g_nMemStats].name = name;
@@ -2069,8 +2107,7 @@ int CStdMemAlloc::GetGenericMemoryStats(GenericMemoryStat_t **ppMemoryStats) {
 #endif  // (!MEMALLOC_REGIONS && MEMALLOC_SEGMENT_MIXED)
 #endif  // USE_DLMALLOC
 
-  size_t nMaxPhysMemUsed_Delta;
-  nMaxPhysMemUsed_Delta = 0;
+  [[maybe_unused]] size_t nMaxPhysMemUsed_Delta = 0;
 #ifdef _PS3
   {
     // System heap (should not exist!)
@@ -2204,7 +2241,7 @@ MemAllocFailHandler_t CStdMemAlloc::SetAllocFailHandler(
   return pfnPrevious;
 }
 
-size_t CStdMemAlloc::DefaultFailHandler(size_t nBytes) {
+size_t CStdMemAlloc::DefaultFailHandler([[maybe_unused]] size_t nBytes) {
   if (IsX360()) {
 #ifdef _X360
     ExecuteOnce({
@@ -2220,8 +2257,8 @@ size_t CStdMemAlloc::DefaultFailHandler(size_t nBytes) {
   return 0;
 }
 
-void CStdMemAlloc::SetStatsExtraInfo(const char *pMapName,
-                                     const char *pComment) {}
+void CStdMemAlloc::SetStatsExtraInfo([[maybe_unused]] const char *pMapName,
+                                     [[maybe_unused]] const char *pComment) {}
 
 void CStdMemAlloc::SetCRTAllocFailed(size_t nSize) {
   m_sMemoryAllocFailed = nSize;
@@ -2232,13 +2269,13 @@ void CStdMemAlloc::SetCRTAllocFailed(size_t nSize) {
 #endif  // _PS3
 
   char buffer[256];
-#ifdef COMPILER_GCC
+#if defined(COMPILER_GCC) || defined(COMPILER_CLANG)
   _snprintf(buffer, sizeof(buffer),
             "***** OUT OF MEMORY! attempted allocation size: %zu ****\n", nSize);
 #else
   _snprintf(buffer, sizeof(buffer),
             "***** OUT OF MEMORY! attempted allocation size: %zu ****\n", nSize);
-#endif  // COMPILER_GCC
+#endif  // COMPILER_GCC || COMPILER_CLANG
 
 #ifdef _X360
   XBX_OutputDebugString(buffer);

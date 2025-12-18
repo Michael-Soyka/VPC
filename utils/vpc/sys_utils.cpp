@@ -129,8 +129,8 @@ CUtlString CXMLWriter::FixupXMLString(const char *pInput) {
   CUtlVector<bool> needsFixups;
   CUtlString outString;
 
-  needsFixups.SetCount(ARRAYSIZE(xmlFixups));
-  for (int i = 0; i < ARRAYSIZE(xmlFixups); i++) {
+  needsFixups.SetCount(static_cast<intp>(std::size(xmlFixups)));
+  for (intp i = 0; i < static_cast<intp>(std::size(xmlFixups)); i++) {
     needsFixups[i] = false;
 
     if (!m_b2010Format && xmlFixups[i].m_b2010Only) continue;
@@ -148,7 +148,7 @@ CUtlString CXMLWriter::FixupXMLString(const char *pInput) {
     char bigBuffer[2][8192];
     V_strncpy(bigBuffer[flip], pInput, sizeof(bigBuffer[0]));
 
-    for (int i = 0; i < ARRAYSIZE(xmlFixups); i++) {
+    for (intp i = 0; i < static_cast<intp>(std::size(xmlFixups)); i++) {
       if (!needsFixups[i]) continue;
 
       if (!V_StrSubst(bigBuffer[flip], xmlFixups[i].m_pFrom, xmlFixups[i].m_pTo,
@@ -354,7 +354,7 @@ bool Sys_ReplaceString(const char *pStream, const char *pSearch,
       /// end of string
       len = V_strlen(pStart);
       pFind = pStart + len;
-      memcpy(pOut, pStart, len);
+      if (pOut + len - pOutBuff < outBuffSize) memcpy(pOut, pStart, len);
       pOut += len;
       break;
     } else {
@@ -363,12 +363,12 @@ bool Sys_ReplaceString(const char *pStream, const char *pSearch,
 
     // copy up to sub string
     len = pFind - pStart;
-    memcpy(pOut, pStart, len);
+    if (pOut + len - pOutBuff < outBuffSize) memcpy(pOut, pStart, len);
     pOut += len;
 
     // substitute new string
     len = V_strlen(pReplace);
-    memcpy(pOut, pReplace, len);
+    if (pOut + len - pOutBuff < outBuffSize) memcpy(pOut, pReplace, len);
     pOut += len;
 
     // advance past sub string
@@ -451,7 +451,7 @@ bool Sys_ExpandFilePattern(const char *pPattern,
 #elif defined(POSIX)
   glob_t gr;
   if (glob(pPattern, 0, NULL, &gr) == 0) {
-    for (int i = 0; i < gr.gl_pathc; i++) {
+    for (size_t i = 0; i < gr.gl_pathc; i++) {
       vecResults.AddToTail(gr.gl_pathv[i]);
     }
     globfree(&gr);
@@ -533,7 +533,6 @@ bool Sys_GetActualFilenameCase(const char *pFilename, char *pOutputBuffer,
   CUtlString actualFilename;
 
   // march along filename, resolving up to next seperator
-  intp nLastComponentStart = 0;
   bool bAddSeparator = false;
   intp i = 0;
   while (i < nFilenameLength) {
@@ -561,7 +560,7 @@ bool Sys_GetActualFilenameCase(const char *pFilename, char *pOutputBuffer,
     // truncate at separator, windows resolves each component in pieces
     filenameBuffer[i] = 0;
 
-    SHFILEINFOA info = {0};
+    SHFILEINFOA info = {};
     DWORD_PTR hr{SHGetFileInfoA(filenameBuffer, 0, &info, sizeof(info),
                                 SHGFI_DISPLAYNAME)};
     if (hr != 0) {
@@ -579,7 +578,6 @@ bool Sys_GetActualFilenameCase(const char *pFilename, char *pOutputBuffer,
     }
 
     ++i;
-    nLastComponentStart = i;
     bAddSeparator = true;
   }
 
@@ -663,4 +661,24 @@ bool Sys_CopyToMirror(const char *pFilename) {
 #endif
 
   return true;
+}
+
+CUtlString Sys_GuidFromFileName(const char *szFileName) {
+  // set the GUID
+  MD5Context_t ctx;
+  unsigned char digest[MD5_DIGEST_LENGTH];
+  V_memset(&ctx, 0, sizeof(ctx));
+  V_memset(digest, 0, sizeof(digest));
+  MD5Init(&ctx);
+  MD5Update(&ctx, (unsigned char *)szFileName, strlen(szFileName));
+  MD5Final(digest, &ctx);
+
+  char szMD5[64];
+  V_binarytohex(digest, MD5_DIGEST_LENGTH, szMD5, sizeof(szMD5));
+  V_strupr(szMD5);
+
+  char szGUID[MAX_PATH];
+  V_snprintf(szGUID, sizeof(szGUID), "{%8.8s-%4.4s-%4.4s-%4.4s-%12.12s}", szMD5,
+             &szMD5[8], &szMD5[12], &szMD5[16], &szMD5[20]);
+  return szGUID;
 }

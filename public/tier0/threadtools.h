@@ -15,6 +15,7 @@
 #if defined(POSIX) && !defined(_PS3) && !defined(_X360)
 #include <pthread.h>
 #include <cerrno>
+#include <cstddef>  // std::size
 #define WAIT_OBJECT_0 0
 #define WAIT_TIMEOUT 0x00000102
 #define WAIT_FAILED -1
@@ -193,12 +194,10 @@ DLL_IMPORT unsigned long STDCALL GetCurrentThreadId();
 inline void ThreadPause() {
 #if defined(COMPILER_PS3)
   __db16cyc();
-#elif defined(COMPILER_GCC)
+#elif defined(COMPILER_GCC) || defined(COMPILER_CLANG)
   __asm __volatile("pause");
-#elif defined(COMPILER_MSVC64)
+#elif defined(COMPILER_MSVC64) || defined(COMPILER_MSVC32)
   _mm_pause();
-#elif defined(COMPILER_MSVC32)
-  __asm pause;
 #elif defined(COMPILER_MSVCX360)
   YieldProcessor();
   __asm { or r0,r0,r0}
@@ -1078,7 +1077,7 @@ class ALIGN128 CAlignedThreadFastMutex : public CThreadFastMutex {
   }
 
  private:
-  uint8 pad[128 - sizeof(CThreadFastMutex)];  //-V730_NOINIT
+  [[maybe_unused]] uint8 pad[128 - sizeof(CThreadFastMutex)];  //-V730_NOINIT
 };
 
 #else
@@ -1335,7 +1334,7 @@ class PLATFORM_CLASS CThreadSyncObject {
   //-----------------------------------------------------
 #ifdef _WIN32
   operator HANDLE() { return GetHandle(); }
-  const HANDLE GetHandle() const { return m_hSyncObject; }
+  HANDLE GetHandle() const { return m_hSyncObject; }
 #endif
   //-----------------------------------------------------
   // Wait for a signal from the object
@@ -1912,10 +1911,10 @@ class PLATFORM_CLASS CThread {
 
   // Allow for custom start waiting
   virtual bool WaitForCreateComplete(CThreadEvent *pEvent);
-  const ThreadId_t GetThreadID() const { return (ThreadId_t)m_threadId; }
+  ThreadId_t GetThreadID() const { return (ThreadId_t)m_threadId; }
 
 #ifdef PLATFORM_WINDOWS
-  const ThreadHandle_t GetThreadHandle() const {
+  ThreadHandle_t GetThreadHandle() const {
     return (ThreadHandle_t)m_hThread;
   }
 
@@ -2239,7 +2238,7 @@ inline bool CThreadMutex::AssertOwnedByCurrentThread() {
 
 //---------------------------------------------------------
 
-inline void CThreadMutex::SetTrace(bool bTrace) {
+inline void CThreadMutex::SetTrace([[maybe_unused]] bool bTrace) {
 #ifdef _WIN32
 #ifdef THREAD_MUTEX_TRACING_ENABLED
   m_bTrace = bTrace;

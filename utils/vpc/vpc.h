@@ -17,7 +17,7 @@
 #include "tier1/interface.h"
 #include "p4lib/ip4.h"
 #include "scriptsource.h"
-#include "logging.h"
+#include "tier0/logging.h"
 
 #ifdef STEAM
 #include "vstdlib/strtools.h"
@@ -26,7 +26,7 @@
 #endif
 
 #include "sys_utils.h"
-#include "keyvalues.h"
+#include "tier1/keyvalues.h"
 #include "generatordefinition.h"
 
 DECLARE_LOGGING_CHANNEL(LOG_VPC);
@@ -158,6 +158,7 @@ enum EVSVersion {
   k_EVSVersion_2013,
   k_EVSVersion_2015,
   k_EVSVersion_2022,
+  k_EVSVersion_2026,
 };
 
 class CVPC {
@@ -194,25 +195,13 @@ class CVPC {
   const char *GetDecorateString() { return m_strDecorate.String(); }
   bool IsCheckFiles() const { return m_bCheckFiles; }
   bool Is2008() const { return m_eVSVersion == k_EVSVersion_2008; }
-  bool Is2010() const {
-    return m_bUseVS2010FileFormat || m_eVSVersion == k_EVSVersion_2010;
-  }
-  bool Is2012() const {
-    return m_eVSVersion == k_EVSVersion_2012;
-  }  // When this returns true so does Is2010() because of the file format
-     // similarities
-  bool Is2013() const {
-    return m_eVSVersion == k_EVSVersion_2013;
-  }  // When this returns true so does Is2010() because of the file format
-     // similarities
-  bool Is2015() const {
-    return m_eVSVersion == k_EVSVersion_2015;
-  }  // When this returns true so does Is2010() because of the file format
-     // similarities
-  bool Is2022() const {
-    return m_eVSVersion == k_EVSVersion_2022;
-  }  // When this returns true so does Is2010() because of the file format
-     // similarities
+  bool Is2010() const { return m_eVSVersion == k_EVSVersion_2010; }
+  bool Is2010PlusFileFormat() const { return m_bUseVS2010FileFormat; }
+  bool Is2012() const { return m_eVSVersion == k_EVSVersion_2012; }
+  bool Is2013() const { return m_eVSVersion == k_EVSVersion_2013; }
+  bool Is2015() const { return m_eVSVersion == k_EVSVersion_2015; }
+  bool Is2022() const { return m_eVSVersion == k_EVSVersion_2022; }
+  bool Is2026() const { return m_eVSVersion == k_EVSVersion_2026; }
   bool IsDedicatedBuild() const { return m_bDedicatedBuild; }
   bool IsUnity() const { return m_bUseUnity; }
   bool IsShowCaseIssues() const { return m_bShowCaseIssues; }

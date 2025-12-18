@@ -8,6 +8,9 @@
 #include "tier0/dbg.h"
 
 #include <algorithm>
+#include <string>  // std::size
+
+#include "tier0/memdbgon.h"
 
 // Tier 1 libraries
 ICvar *cvar{nullptr};
@@ -163,23 +166,6 @@ size_t registrations_count{0};
 
 ConnectionRegistration
     connection_registrations[std::size(interface_globals) + 1];
-
-void RegisterInterface(CreateInterfaceFn factory, const char *name,
-                       void **global) {
-  if (!(*global)) {
-    *global = factory(name, nullptr);
-
-    if (*global) {
-      Assert(registrations_count < std::size(connection_registrations));
-
-      ConnectionRegistration &reg{
-          connection_registrations[registrations_count++]};
-
-      reg.global_storage = global;
-      reg.connection_phase = connections_count;
-    }
-  }
-}
 
 void ReconnectInterface(CreateInterfaceFn factory, const char *name,
                         void **global) {

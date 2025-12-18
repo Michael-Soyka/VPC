@@ -42,8 +42,10 @@
 #endif
 
 // NOTE: I have to include stdio + stdarg first so vsnprintf gets compiled in
-#include <stdio.h>
-#include <stdarg.h>
+#include <cstdio>
+#include <cstdarg>
+#include <algorithm>
+#include <string_view>  // std::size
 
 #include "tier0/basetypes.h"
 #include "tier0/platform.h"
@@ -86,6 +88,7 @@
 #include <cell/l10n.h>  // for UCS-2 to UTF-8 conversion
 #endif
 #include "tier0/vprof.h"
+
 #include "tier0/memdbgon.h"
 
 #ifndef NDEBUG
@@ -284,14 +287,16 @@ char *_V_strupr(char *start) {
 
 char *_V_strlower(char *start) {
   AssertValidStringPtr(start);
+#if defined(_WIN32)
   return _strlwr(start);
+#else
+  return strlwr(start);
+#endif
 }
 
-wchar_t *_V_wcsupr(const char *file, int line, wchar_t *start) {
-  return _wcsupr(start);
-}
+wchar_t *_V_wcsupr(const char *, int, wchar_t *start) { return _wcsupr(start); }
 
-wchar_t *_V_wcslower(const char *file, int line, wchar_t *start) {
+wchar_t *_V_wcslower(const char *, int, wchar_t *start) {
   return _wcslwr(start);
 }
 
@@ -704,8 +709,14 @@ void V_strncpy(char *pDest, char const *pSrc, intp maxLen) {
 
   DEBUG_LINK_CHECK;
 
-  strncpy(pDest, pSrc, maxLen); //-V781
   if (maxLen > 0) {
+    WB_GCC_BEGIN_WARNING_OVERRIDE_SCOPE()
+    // GCC warns about string truncation, but maxLen is pDest buffer size.
+    // So truncation is exactly what we need.
+    WB_GCC_DISABLE_STRING_OP_TRUNCATION_WARNING()
+    strncpy(pDest, pSrc, maxLen - 1);
+    WB_GCC_END_WARNING_OVERRIDE_SCOPE()
+
     pDest[maxLen - 1] = '\0';
   }
 }
@@ -714,10 +725,10 @@ void V_wcsncpy(wchar_t *pDest, wchar_t const *pSrc, intp maxLenInBytes) {
   Assert(maxLenInBytes >= 0);
   AssertValidReadPtr(pSrc);
 
-  intp maxLen = maxLenInBytes / sizeof(wchar_t);
+  size_t maxLen = maxLenInBytes / sizeof(wchar_t);
 
-  wcsncpy(pDest, pSrc, maxLen);
   if (maxLen) {
+    wcsncpy(pDest, pSrc, maxLen - 1);
     pDest[maxLen - 1] = L'\0';
   }
 }
@@ -749,8 +760,8 @@ int V_snwprintf(wchar_t *pDest, int maxLenInNumWideCharacters,
   return len;
 }
 
-int V_snprintf(char *pDest, int maxLen,
-               PRINTF_FORMAT_STRING char const *pFormat, ...) {
+intp V_snprintf(char *pDest, intp maxLen,
+                PRINTF_FORMAT_STRING char const *pFormat, ...) {
   Assert(maxLen >= 0);
   AssertValidStringPtr(pFormat);
 
@@ -758,9 +769,9 @@ int V_snprintf(char *pDest, int maxLen,
 
   va_start(marker, pFormat);
 #ifdef _WIN32
-  int len = _vsnprintf(pDest, maxLen, pFormat, marker);
+  intp len = _vsnprintf(pDest, maxLen, pFormat, marker);
 #elif POSIX
-  int len = vsnprintf(pDest, maxLen, pFormat, marker);
+  intp len = vsnprintf(pDest, maxLen, pFormat, marker);
 #else
 #error "define vsnprintf type."
 #endif
@@ -1228,11 +1239,9 @@ void V_DefaultExtension(char *path, const char *extension,
   Assert(pathStringLength >= 1);
   Assert(extension);
 
-  char *src;
-
   // if path doesn't have a .EXT, append extension
   // (extension should include the .)
-  src = path + V_strlen(path) - 1;
+  char *src = path + V_strlen(path) - 1;
 
   while (!PATHSEPARATOR(*src) && (src > path)) {
     if (*src == '.') {
@@ -1461,9 +1470,10 @@ void V_ExtractFileExtension(const char *path, char *dest, intp destSize) {
 //				if there is no extension
 //-----------------------------------------------------------------------------
 const char *V_GetFileExtension(const char *path) {
-  const char *src;
+  // dimhotepus: ASAN catch. Fix one before range read.
+  if (!path[0]) return nullptr;
 
-  src = path + strlen(path) - 1;
+  const char *src = path + strlen(path) - 1;
 
   //
   // back up until a . or the start
@@ -1785,7 +1795,7 @@ char *AllocString(const char *pStr, intp nMaxChars) {
   if (nMaxChars == -1)
     allocLen += 1;
   else
-    allocLen = min(allocLen, nMaxChars) + 1;
+    allocLen = std::min(allocLen, nMaxChars) + 1;
 
   char *pOut = new char[allocLen];
   V_strncpy(pOut, pStr, allocLen);
@@ -2143,7 +2153,7 @@ static const wchar_t wszCantEndLine[] = {
 static const wchar_t wszCantBreakRepeated[] = {0x002d, 0x002e, 0x3002};
 
 bool AsianWordWrap::CanEndLine(wchar_t wcCandidate) {
-  for (intp i = 0; i < SIZE_OF_ARRAY(wszCantEndLine); ++i) {
+  for (size_t i = 0; i < std::size(wszCantEndLine); ++i) {
     if (wcCandidate == wszCantEndLine[i]) return false;
   }
 
@@ -2151,7 +2161,7 @@ bool AsianWordWrap::CanEndLine(wchar_t wcCandidate) {
 }
 
 bool AsianWordWrap::CanBeginLine(wchar_t wcCandidate) {
-  for (intp i = 0; i < SIZE_OF_ARRAY(wszCantBeginLine); ++i) {
+  for (size_t i = 0; i < std::size(wszCantBeginLine); ++i) {
     if (wcCandidate == wszCantBeginLine[i]) return false;
   }
 
@@ -2159,7 +2169,7 @@ bool AsianWordWrap::CanBeginLine(wchar_t wcCandidate) {
 }
 
 bool AsianWordWrap::CanBreakRepeated(wchar_t wcCandidate) {
-  for (intp i = 0; i < SIZE_OF_ARRAY(wszCantBreakRepeated); ++i) {
+  for (size_t i = 0; i < std::size(wszCantBreakRepeated); ++i) {
     if (wcCandidate == wszCantBreakRepeated[i]) return false;
   }
 

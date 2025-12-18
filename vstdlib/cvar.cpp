@@ -44,7 +44,7 @@ class CDefaultCvarQuery : public CBaseAppSystem<ICvarQuery> {
     return NULL;
   }
 
-  virtual bool AreConVarsLinkable(const ConVar *child, const ConVar *parent) {
+  virtual bool AreConVarsLinkable(const ConVar *, const ConVar *) {
     return true;
   }
 };
@@ -237,8 +237,11 @@ ICvar::ICVarIteratorInternal *CCvar::FactoryInternalIterator(void) {
 //-----------------------------------------------------------------------------
 // Factor for CVars
 //-----------------------------------------------------------------------------
-static CCvar s_Cvar;
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CCvar, ICvar, CVAR_INTERFACE_VERSION, s_Cvar);
+static void *CreateCVar() {
+  static CCvar s_Cvar;
+  return &s_Cvar;
+};
+EXPOSE_INTERFACE_FN(CreateCVar, ICvar, CVAR_INTERFACE_VERSION);
 
 //-----------------------------------------------------------------------------
 // Returns a CVar dictionary for tool usage
@@ -365,7 +368,7 @@ void CCvar::RegisterConCommand(ConCommandBase *variable) {
 
         // Transfer children's callbacks to parent
         if (pChildVar->m_fnChangeCallbacks.Count()) {
-          for (int i = 0; i < pChildVar->m_fnChangeCallbacks.Count(); ++i) {
+          for (intp i = 0; i < pChildVar->m_fnChangeCallbacks.Count(); ++i) {
             pParentVar->m_fnChangeCallbacks.AddToTail(
                 pChildVar->m_fnChangeCallbacks[i]);
           }
@@ -401,7 +404,7 @@ void CCvar::RegisterConCommand(ConCommandBase *variable) {
 
         COMPILE_TIME_ASSERT(std::size(nFlags) == std::size(szFlags));
 
-        for (int k = 0; k < V_ARRAYSIZE(nFlags); ++k) {
+        for (size_t k = 0; k < V_ARRAYSIZE(nFlags); ++k) {
           if ((pChildVar->m_nFlags & nFlags[k]) !=
               (pParentVar->m_nFlags & nFlags[k])) {
             Warning(
@@ -495,7 +498,7 @@ void CCvar::RemoveSplitScreenConVars(CVarDLLIdentifier_t id)
     deleted.AddToTail(key);
   }
 
-  for (int i = 0; i < deleted.Count(); ++i) {
+  for (intp i = 0; i < deleted.Count(); ++i) {
     m_SplitScreenAddedConVarsMap.Remove(deleted[i]);
   }
 }
@@ -789,7 +792,9 @@ void CCvar::RemoveConsoleDisplayFunc(IConsoleDisplayFunc *pDisplayFunc) {
   m_DisplayFuncs.FindAndRemove(pDisplayFunc);
 }
 
-intp CCvar::GetConsoleDisplayFuncCount() const { return m_DisplayFuncs.Count(); }
+intp CCvar::GetConsoleDisplayFuncCount() const {
+  return m_DisplayFuncs.Count();
+}
 
 void CCvar::GetConsoleText(int nDisplayFuncIndex, char *pchText,
                            size_t bufSize) const {
@@ -960,7 +965,7 @@ void CCvar::Find(const CCommand &args) {
 }
 
 #ifdef _DEBUG
-void CCvar::HashReport(const CCommand &args) { m_CommandHash.Report(); }
+void CCvar::HashReport(const CCommand &) { m_CommandHash.Report(); }
 #endif
 
 void CCvar::SetMaxSplitScreenSlots(int nSlots) {

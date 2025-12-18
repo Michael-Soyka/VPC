@@ -106,7 +106,7 @@ bool CProjectGenerator_Win32_2010::WriteFile(CProjectFile *pFile,
     m_XMLWriter.PushNode(pKeyName,
                          CFmtStr("Include=\"%s\"", pFile->m_Name.Get()));
 
-    for (int i = 0; i < pFile->m_Configs.Count(); i++) {
+    for (intp i = 0; i < pFile->m_Configs.Count(); i++) {
       if (!WriteConfiguration(pFile->m_Configs[i])) return false;
     }
 
@@ -243,9 +243,7 @@ bool CProjectGenerator_Win32_2010::WritePrimaryXML(
   m_XMLWriter.PushNode("ItemGroup", "Label=\"ProjectConfigurations\"");
   CUtlVector<CUtlString> configurationNames;
   m_pVCProjGenerator->GetAllConfigurationNames(configurationNames);
-  const char *pPlatformString = "Win32";
-  if (g_pVPC->IsPlatformDefined("WIN64")) pPlatformString = "x64";
-  for (int i = 0; i < configurationNames.Count(); i++) {
+  for (intp i = 0; i < configurationNames.Count(); i++) {
     m_XMLWriter.PushNode(
         "ProjectConfiguration",
         CFmtStr("Include=\"%s|%s\"", configurationNames[i].Get(),
@@ -291,7 +289,7 @@ bool CProjectGenerator_Win32_2010::WritePrimaryXML(
   }
 
   // write the root configurations
-  for (int i = 0; i < configurationNames.Count(); i++) {
+  for (intp i = 0; i < configurationNames.Count(); i++) {
     CProjectConfiguration *pConfiguration = NULL;
     if (m_pVCProjGenerator->GetRootConfiguration(configurationNames[i].Get(),
                                                  &pConfiguration)) {
@@ -302,9 +300,13 @@ bool CProjectGenerator_Win32_2010::WritePrimaryXML(
   m_XMLWriter.Write(
       "<Import Project=\"$(VCTargetsPath)\\Microsoft.Cpp.props\" />");
   m_XMLWriter.PushNode("ImportGroup", "Label=\"ExtensionSettings\"");
+  // dimhotepus: Always add MASM props.
+  m_XMLWriter.Write(
+      "<Import Project=\"$(VCTargetsPath)\\BuildCustomizations\\masm.props\" "
+      "/>");
   m_XMLWriter.PopNode(true);
 
-  for (int i = 0; i < configurationNames.Count(); i++) {
+  for (intp i = 0; i < configurationNames.Count(); i++) {
     m_XMLWriter.PushNode(
         "ImportGroup",
         CFmtStr("Condition=\"'$(Configuration)|$(Platform)'=='%s|%s'\" "
@@ -322,7 +324,7 @@ bool CProjectGenerator_Win32_2010::WritePrimaryXML(
 
   m_XMLWriter.PushNode("PropertyGroup");
   m_XMLWriter.WriteLineNode("_ProjectFileVersion", "", "10.0.30319.1");
-  for (int i = 0; i < configurationNames.Count(); i++) {
+  for (intp i = 0; i < configurationNames.Count(); i++) {
     CProjectConfiguration *pConfiguration = NULL;
     if (m_pVCProjGenerator->GetRootConfiguration(configurationNames[i].Get(),
                                                  &pConfiguration)) {
@@ -366,7 +368,7 @@ bool CProjectGenerator_Win32_2010::WritePrimaryXML(
   m_XMLWriter.PopNode(true);
 
   // write the tool configurations
-  for (int i = 0; i < configurationNames.Count(); i++) {
+  for (intp i = 0; i < configurationNames.Count(); i++) {
     CProjectConfiguration *pConfiguration = NULL;
     if (m_pVCProjGenerator->GetRootConfiguration(configurationNames[i].Get(),
                                                  &pConfiguration)) {
@@ -383,6 +385,10 @@ bool CProjectGenerator_Win32_2010::WritePrimaryXML(
   m_XMLWriter.Write(
       "<Import Project=\"$(VCTargetsPath)\\Microsoft.Cpp.targets\" />");
   m_XMLWriter.PushNode("ImportGroup", "Label=\"ExtensionTargets\"");
+  // dimhotepus: Always include MASM targets.
+  m_XMLWriter.Write(
+      "<Import Project=\"$(VCTargetsPath)\\BuildCustomizations\\masm.targets\" "
+      "/>");
   m_XMLWriter.PopNode(true);
 
   m_XMLWriter.PopNode(true);
@@ -403,7 +409,7 @@ bool CProjectGenerator_Win32_2010::WriteFolderToSecondaryXML(
   V_memset(&ctx, 0, sizeof(ctx));
   V_memset(digest, 0, sizeof(digest));
   MD5Init(&ctx);
-  MD5Update(&ctx, (unsigned char *)parentPath.Get(), V_strlen(parentPath.Get()));
+  MD5Update(&ctx, (unsigned char *)parentPath.Get(), strlen(parentPath.Get()));
   MD5Final(digest, &ctx);
 
   char szMD5[64];

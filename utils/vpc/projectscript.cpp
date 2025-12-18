@@ -60,7 +60,7 @@ void VPC_TrackSchemaFile(const char *pName, bool bRemove,
     return;
   }
 
-  for (int i = 0; i < g_pVPC->m_SchemaFiles.Count(); i++) {
+  for (intp i = 0; i < g_pVPC->m_SchemaFiles.Count(); i++) {
     if (!g_pVPC->m_SchemaFiles[i].String()) continue;
 
     if (!V_stricmp(pName, g_pVPC->m_SchemaFiles[i].String())) {
@@ -84,7 +84,7 @@ void VPC_TrackSchemaFile(const char *pName, bool bRemove,
   if (pExt && !V_stricmp(pExt, "cpp")) {
     CUtlVector<CUtlString> configurationNames;
     g_pVPC->GetProjectGenerator()->GetAllConfigurationNames(configurationNames);
-    for (int i = 0; i < configurationNames.Count(); i++) {
+    for (intp i = 0; i < configurationNames.Count(); i++) {
       g_pVPC->GetProjectGenerator()->StartConfigurationBlock(
           configurationNames[i].String(), true);
       g_pVPC->GetProjectGenerator()->FileIsSchema(true);
@@ -238,7 +238,7 @@ void VPC_Keyword_AddFilesByPattern() {
     CUtlVector<CUtlString> vecResults;
     Sys_ExpandFilePattern(szFilename, vecResults);
 
-    for (int i = 0; i < vecResults.Count(); i++) {
+    for (intp i = 0; i < vecResults.Count(); i++) {
       g_pVPC->VPCStatus(false, "glob: adding '%s' to project",
                         vecResults[i].String());
       g_pVPC->GetProjectGenerator()->StartFile(vecResults[i].String(), true);
@@ -318,7 +318,7 @@ void VPC_Keyword_AddFile(const char *pFileFlag = NULL,
 
   // need to check files early to handle possible rejected section
   if (g_pVPC->IsCheckFiles() && !bDynamicFile) {
-    for (int i = 0; i < files.Count(); i++) {
+    for (intp i = 0; i < files.Count(); i++) {
       const char *pFilename = files[i].String();
       if (!Sys_Exists(pFilename) && !V_stristr(pFilename, "$os")) {
 #if defined(POSIX)
@@ -356,7 +356,7 @@ void VPC_Keyword_AddFile(const char *pFileFlag = NULL,
   }
 
   if (g_pVPC->IsShowCaseIssues() && !bDynamicFile) {
-    for (int i = 0; i < files.Count(); i++) {
+    for (intp i = 0; i < files.Count(); i++) {
       const char *pFilename = files[i].String();
       char actualFilename[MAX_PATH];
       if (!Sys_IsFilenameCaseConsistent(pFilename, actualFilename,
@@ -378,13 +378,13 @@ void VPC_Keyword_AddFile(const char *pFileFlag = NULL,
     return;
   }
 
-  for (int k = 0; k < unbuiltFiles.Count(); k++) {
+  for (intp k = 0; k < unbuiltFiles.Count(); k++) {
     const char *pExcludedFilename = unbuiltFiles[k].String();
 
     g_pVPC->GetProjectGenerator()->StartFile(pExcludedFilename, true);
     CUtlVector<CUtlString> configurationNames;
     g_pVPC->GetProjectGenerator()->GetAllConfigurationNames(configurationNames);
-    for (int j = 0; j < configurationNames.Count(); j++) {
+    for (intp j = 0; j < configurationNames.Count(); j++) {
       g_pVPC->GetProjectGenerator()->StartConfigurationBlock(
           configurationNames[j].String(), true);
       g_pVPC->GetProjectGenerator()->FileExcludedFromBuild(true);
@@ -404,7 +404,7 @@ void VPC_Keyword_AddFile(const char *pFileFlag = NULL,
   // save parser state
   CScriptSource startingScriptSource = g_pVPC->GetScript().GetCurrentScript();
 
-  for (int k = 0; k < files.Count(); k++) {
+  for (intp k = 0; k < files.Count(); k++) {
     const char *pFilename = files[k].String();
 
     CUtlString filename;
@@ -416,7 +416,7 @@ void VPC_Keyword_AddFile(const char *pFileFlag = NULL,
       rgchRejectList[0] = '\0';
 
       if (vecExcludedFiles.Count()) {
-        for (int j = 0; j < files.Count(); j++) {
+        for (intp j = 0; j < files.Count(); j++) {
           V_strncat(rgchRejectList, files[j].String(),
                     V_ARRAYSIZE(rgchRejectList));
           V_strncat(rgchRejectList, ",", V_ARRAYSIZE(rgchRejectList));
@@ -448,7 +448,7 @@ void VPC_Keyword_AddFile(const char *pFileFlag = NULL,
           g_pVPC->GetProjectGenerator()->GetAllConfigurationNames(
               configurationNames);
 
-          for (int j = 0; j < configurationNames.Count(); j++) {
+          for (intp j = 0; j < configurationNames.Count(); j++) {
             g_pVPC->GetProjectGenerator()->StartConfigurationBlock(
                 configurationNames[j].String(), true);
             g_pVPC->GetProjectGenerator()->FileExcludedFromBuild(true);
@@ -469,7 +469,7 @@ void VPC_Keyword_AddFile(const char *pFileFlag = NULL,
       g_pVPC->GetProjectGenerator()->GetAllConfigurationNames(
           configurationNames);
 
-      for (int j = 0; j < configurationNames.Count(); j++) {
+      for (intp j = 0; j < configurationNames.Count(); j++) {
         g_pVPC->GetProjectGenerator()->StartConfigurationBlock(
             configurationNames[j].String(), true);
         g_pVPC->GetProjectGenerator()->FileIsDynamic(true);
@@ -510,7 +510,7 @@ void VPC_Keyword_AddFile(const char *pFileFlag = NULL,
       CUtlVector<CUtlString> configurationNames;
       g_pVPC->GetProjectGenerator()->GetAllConfigurationNames(
           configurationNames);
-      for (int j = 0; j < configurationNames.Count(); j++) {
+      for (intp j = 0; j < configurationNames.Count(); j++) {
         g_pVPC->GetProjectGenerator()->StartConfigurationBlock(
             configurationNames[j].String(), true);
         g_pVPC->GetProjectGenerator()->FileExcludedFromBuild(true);
@@ -622,7 +622,7 @@ static void VPC_HandleLibraryExpansion(char const *pDefaultPath,
 
   CUtlStringList impFiles;
   VPC_ParseFileList(impFiles);
-  for (int i = 0; i < impFiles.Count(); i++) {
+  for (intp i = 0; i < impFiles.Count(); i++) {
     char szFilename[MAX_PATH * 2];
     char const *pPathPrefixToUse = pDefaultPath;
 
@@ -717,7 +717,7 @@ static void VPC_Keyword_LinkerLibrary(uint32 Flags) {
 void VPC_Keyword_RemoveFile() {
   CUtlStringList filesToRemove;
   VPC_ParseFileList(filesToRemove);
-  for (int i = 0; i < filesToRemove.Count(); i++) {
+  for (intp i = 0; i < filesToRemove.Count(); i++) {
     bool bSucc = g_pVPC->GetProjectGenerator()->RemoveFile(filesToRemove[i]);
     if (!bSucc) {
       g_pVPC->VPCWarning("Failed to remove file %s from project",
@@ -889,7 +889,7 @@ void VPC_Keyword_Folder(
 //	VPC_Keyword_Shaders
 //
 //-----------------------------------------------------------------------------
-void VPC_Keyword_Shaders(int depth) {
+void VPC_Keyword_Shaders(int) {
   const char *pToken;
   char shadersName[MAX_PATH];
   CUtlBuffer vpcBuffer;
@@ -898,7 +898,7 @@ void VPC_Keyword_Shaders(int depth) {
   CUtlVector<CUtlString> pshList;
   CUtlVector<CUtlString> vfxList;
   CUtlVector<CUtlString> otherList;
-  int i;
+  intp i;
   bool bIgnoreRedundancyWarning;
 
   if (!g_pVPC->GetScript().ParsePropertyValue(NULL, shadersName,
@@ -1511,16 +1511,27 @@ void VPC_AddCurrentVPCScriptToProjectFolder(bool bDoCRCCheck) {
 
   // only emit the extra information on windows, and only for the project vpc
   if (bDoCRCCheck && g_pVPC->EvaluateConditionalExpression("$WINDOWS")) {
-    CUtlString sSentinel =
-        CFmtStr("$PROJECTDIR\\%s.sentinel", g_pVPC->GetScript().GetName())
-            .Access();
+    CUtlString projectDir;
+    {
+      // dimhotepus: Drop double quotes from PROJECTDIR as MSVC doesn't like
+      // "xxx"\z.sentinel.
+      CUtlVector<char *> parts;
+      V_SplitString(g_pVPC->GetMacroValue("PROJECTDIR"), "\"", parts);
+
+      for (const auto *part : parts) projectDir.Append(part);
+
+      parts.PurgeAndDeleteElements();
+    }
+
+    CUtlString sSentinel = CFmtStr("%s\\%s.sentinel", projectDir.Get(),
+                                   g_pVPC->GetScript().GetName())
+                               .Access();
     bool bShouldSkip;
 
     CUtlVector<CUtlString> configurationNames;
     g_pVPC->GetProjectGenerator()->GetAllConfigurationNames(configurationNames);
-    char rgchCRCCheckExpanded[2048];
-    rgchCRCCheckExpanded[0] = '\0';
-    for (int i = 0; i < configurationNames.Count(); i++) {
+    CFmtStr outputs("\"%s\"", sSentinel.Get());
+    for (intp i = 0; i < configurationNames.Count(); i++) {
       g_pVPC->GetProjectGenerator()->StartConfigurationBlock(
           configurationNames[i], true);
       g_pVPC->GetProjectGenerator()->StartPropertySection(
@@ -1530,12 +1541,13 @@ void VPC_AddCurrentVPCScriptToProjectFolder(bool bDoCRCCheck) {
       g_pVPC->GetProjectGenerator()->HandleProperty(
           "$Description", CFmtStr("\"Running VPC CRC Check - %s\"",
                                   g_pVPC->GetScript().GetName()));
+      // dimhotepus: Wrap in double quotes to handle paths with spaces.
       g_pVPC->GetProjectGenerator()->HandleProperty(
           "$CommandLine",
-          CFmtStr(
-              "\"rem IncrediBuild_AllowOverlap\n%s\necho crc_complete > %s\"",
-              g_pVPC->GetMacroValue("CRCCHECK"), sSentinel.Get()));
-      g_pVPC->GetProjectGenerator()->HandleProperty("$Outputs", sSentinel);
+          CFmtStr("\"rem IncrediBuild_AllowOverlap\n%s\necho crc_complete > "
+                  "$QUOTE%s$QUOTE\"",
+                  g_pVPC->GetMacroValue("CRCCHECK"), sSentinel.Get()));
+      g_pVPC->GetProjectGenerator()->HandleProperty("$Outputs", outputs);
       g_pVPC->GetProjectGenerator()->EndPropertySection(
           KEYWORD_CUSTOMBUILDSTEP);
       g_pVPC->GetProjectGenerator()->EndConfigurationBlock();
@@ -1569,8 +1581,8 @@ void VPC_HandleIncludeStatement(int depth, bool bQuiet,
   }
 }
 
-void VPC_HandleProjectCommands(const char *pUnusedScriptName, int depth,
-                               bool bQuiet) {
+void VPC_HandleProjectCommands([[maybe_unused]] const char *pUnusedScriptName,
+                               int depth, bool bQuiet) {
   const char *pToken;
 
   while (1) {
@@ -1647,7 +1659,7 @@ void WriteCRCCheckFile(const char *pVCProjFilename) {
   fprintf(fp, "%s\n", g_pVPC->GetCRCString());
 
   CUtlDict<int, int> filenameDict(k_eDictCompareTypeFilenames);
-  for (int i = 0; i < g_pVPC->m_ScriptList.Count(); i++) {
+  for (intp i = 0; i < g_pVPC->m_ScriptList.Count(); i++) {
     scriptList_t *pScript = &g_pVPC->m_ScriptList[i];
 
     // Use the dictionary to prevent duplicate file CRCs being written in here.
@@ -1674,13 +1686,13 @@ void WriteCRCCheckFile(const char *pVCProjFilename) {
 // screws up when it tries to copy the new schemacompiler.exe to game\bin but
 // it's in use.
 //
-void VPC_ForceAdditionalSchemaDependencies(const char *pProjectName) {
+void VPC_ForceAdditionalSchemaDependencies(const char *) {
   if (g_pVPC->m_SchemaFiles.Count() == 0) return;
 
   // Add "$BASE;SchemaCompiler" to $AdditionalProjectDependencies.
   CUtlVector<CUtlString> configurationNames;
   g_pVPC->GetProjectGenerator()->GetAllConfigurationNames(configurationNames);
-  for (int i = 0; i < configurationNames.Count(); i++) {
+  for (intp i = 0; i < configurationNames.Count(); i++) {
     g_pVPC->GetProjectGenerator()->StartConfigurationBlock(
         configurationNames[i].String(), false);
     g_pVPC->GetProjectGenerator()->StartPropertySection(KEYWORD_GENERAL, NULL);
@@ -1832,8 +1844,8 @@ void VPC_Keyword_CustomBuildStep(void) {
   }
 }
 
-void VPC_ParseProjectScriptParameters(const char *szScriptName, int depth,
-                                      bool bQuiet) {
+void VPC_ParseProjectScriptParameters([[maybe_unused]] const char *szScriptName,
+                                      int depth, bool bQuiet) {
   while (1) {
     const char *pToken = g_pVPC->GetScript().GetToken(true);
     if (!pToken || !pToken[0]) {
@@ -1921,7 +1933,8 @@ bool CVPC::ParseProjectScript(const char *pScriptName, int depth, bool bQuiet,
 
     // create reserved $PROJECTDIR
     char szProjectRootPath[MAX_PATH];
-    V_snprintf(szProjectRootPath, sizeof(szProjectRootPath), "%s",
+    // dimhotepus: Wrap in double quotes so paths with spaces work.
+    V_snprintf(szProjectRootPath, sizeof(szProjectRootPath), "\"%s\"",
                g_pVPC->GetProjectPath());
     V_RemoveDotSlashes(szProjectRootPath);
     SetMacro("PROJECTDIR", szProjectRootPath, true);
@@ -2023,7 +2036,7 @@ void VPC_FakeKeyword_SchemaFolder(CBaseProjectDataCollector *pDataCollector) {
 
   schemaInputs += schemaCompilerPath;
 
-  for (int i = 0; i < g_pVPC->m_SchemaFiles.Count(); i++) {
+  for (intp i = 0; i < g_pVPC->m_SchemaFiles.Count(); i++) {
     if (!g_pVPC->m_SchemaFiles[i].String()) continue;
 
     schemaInputs += ";";
@@ -2127,10 +2140,10 @@ void VPC_FakeKeyword_SchemaFolder(CBaseProjectDataCollector *pDataCollector) {
   {
     vpcBuffer.Printf("{\n");
 
-    for (int i = 0; i < schemaFileInfos.Count(); ++i) {
+    for (intp i = 0; i < schemaFileInfos.Count(); ++i) {
       if (schemaFileInfos[i].bIsCppFile) {
         vpcBuffer.Printf("$File \"%s\"\n", schemaFileInfos[i].szGeneratedFile);
-        vpcBuffer.Printf(schemaConfiguration);
+        vpcBuffer.Printf("%s", schemaConfiguration);
       }
     }
 
@@ -2141,10 +2154,10 @@ void VPC_FakeKeyword_SchemaFolder(CBaseProjectDataCollector *pDataCollector) {
   {
     vpcBuffer.Printf("{\n");
 
-    for (int i = 0; i < schemaFileInfos.Count(); ++i) {
+    for (intp i = 0; i < schemaFileInfos.Count(); ++i) {
       if (!schemaFileInfos[i].bIsCppFile) {
         vpcBuffer.Printf("$File \"%s\"\n", schemaFileInfos[i].szGeneratedFile);
-        vpcBuffer.Printf(schemaConfiguration);
+        vpcBuffer.Printf("%s", schemaConfiguration);
       }
     }
 
@@ -2152,7 +2165,7 @@ void VPC_FakeKeyword_SchemaFolder(CBaseProjectDataCollector *pDataCollector) {
   }
 
   vpcBuffer.Printf("$File \"%s\"\n", szSchemaOutAnchorPath);
-  vpcBuffer.Printf(schemaConfiguration);
+  vpcBuffer.Printf("%s", schemaConfiguration);
   vpcBuffer.Printf("}\n");
 
   // save parser
@@ -2197,7 +2210,7 @@ void VPC_FakeKeyword_SchemaFolder(CBaseProjectDataCollector *pDataCollector) {
     KeyValues *pOutInputs = new KeyValues("inputs");
     int nInput = 0;
     pOutKeyValues->AddSubKey(pOutInputs);
-    for (int i = 0; i < schemaFileInfos.Count(); i++) {
+    for (intp i = 0; i < schemaFileInfos.Count(); i++) {
       V_snprintf(szNum, sizeof(szNum), "%03d", nInput++);
 
       SchemaFileInfo_t &fileInfo = schemaFileInfos[i];
@@ -2242,14 +2255,14 @@ KeyValues *ConfigPreprocessorSettingsAsKV(CSpecificConfig *pConfig) {
 
     int nDefine = 0;
 
-    for (int i = 0; i < outStrings.Count(); i++) {
+    for (intp i = 0; i < outStrings.Count(); i++) {
       V_snprintf(szNum, sizeof(szNum), "%03d", nDefine++);
       pOutDefines->SetString(szNum, outStrings[i]);
     }
 
     // change #1001922 from source2 did the pBuf...
     char pBuf[512];
-    for (int i = 0; i < g_pVPC->m_Macros.Count(); i++) {
+    for (intp i = 0; i < g_pVPC->m_Macros.Count(); i++) {
       macro_t *pMacro = &g_pVPC->m_Macros[i];
 
       if (pMacro->m_bSetupDefineInProjectFile) {
@@ -2272,7 +2285,7 @@ KeyValues *ConfigPreprocessorSettingsAsKV(CSpecificConfig *pConfig) {
   CSplitString outStrings(
       pInConfigKV->GetString(g_pOption_AdditionalIncludeDirectories),
       (const char **)g_IncludeSeparators, V_ARRAYSIZE(g_IncludeSeparators));
-  for (int i = 0; i < outStrings.Count(); i++) {
+  for (intp i = 0; i < outStrings.Count(); i++) {
     V_snprintf(szNum, sizeof(szNum), "%03d", nInclude++);
 
     char sDir[MAX_PATH];

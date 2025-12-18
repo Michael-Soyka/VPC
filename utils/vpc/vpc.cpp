@@ -308,12 +308,10 @@ void CVPC::UnloadPerforceInterface() {
     }
 }
 
-bool VPC_Config_IgnoreOption( const char *pPropertyName ) {
-    char buff[ MAX_SYSTOKENCHARS ];
-
-    g_pVPC->GetScript().ParsePropertyValue( NULL, buff, sizeof( buff ) );
-
-    return true;
+bool VPC_Config_IgnoreOption([[maybe_unused]] const char *pPropertyName) {
+  char buff[MAX_SYSTOKENCHARS];
+  g_pVPC->GetScript().ParsePropertyValue(NULL, buff, sizeof(buff));
+  return true;
 }
 
 //-----------------------------------------------------------------------------
@@ -603,7 +601,8 @@ bool CVPC::IsProjectCurrent(const char *pOutputFilename, bool bSpewStatus) {
     return false;
   }
 
-  if (Is2010() && !Sys_Exists(CFmtStr("%s.filters", pOutputFilename))) {
+  if (Is2010PlusFileFormat() &&
+      !Sys_Exists(CFmtStr("%s.filters", pOutputFilename))) {
     return false;
   }
 
@@ -1012,7 +1011,7 @@ void CVPC::HandleSingleCommandLineArg(const char *pArg) {
       m_bUsageOnly = true;
     } else if (!V_stricmp(pArgName, "allgames")) {
       // shortcut for all games defined
-      for (int j = 0; j < m_Conditionals.Count(); j++) {
+      for (intp j = 0; j < m_Conditionals.Count(); j++) {
         if (m_Conditionals[j].type == CONDITIONAL_GAME) {
           m_Conditionals[j].m_bDefined = true;
         }
@@ -1041,6 +1040,9 @@ void CVPC::HandleSingleCommandLineArg(const char *pArg) {
       m_ExtraOptionsCRCString += pArgName;
     } else if (!V_stricmp(pArgName, "2022")) {
       m_eVSVersion = k_EVSVersion_2022;
+      m_ExtraOptionsCRCString += pArgName;
+    } else if (!V_stricmp(pArgName, "2026")) {
+      m_eVSVersion = k_EVSVersion_2026;
       m_ExtraOptionsCRCString += pArgName;
     } else if (!V_stricmp(pArgName, "nounity")) {
       m_bUseUnity = false;
@@ -1531,12 +1533,12 @@ void CVPC::IterateTargetProjects(CUtlVector<projectIndex_t> &projectList,
     return;
   }
 
-  for (int nProject = 0; nProject < projectList.Count(); nProject++) {
+  for (intp nProject = 0; nProject < projectList.Count(); nProject++) {
     project_t *pProject = &m_Projects[projectList[nProject]];
 
     // each project can have 1 or more scripts that are predicated by
     // game/platform conditionals (i.e. client or server)
-    for (int nScript = 0; nScript < pProject->scripts.Count(); nScript++) {
+    for (intp nScript = 0; nScript < pProject->scripts.Count(); nScript++) {
       script_t *pProjectScript = &pProject->scripts[nScript];
 
       // occurrence of game condition(s) dictates iteration behavior
@@ -1552,7 +1554,7 @@ void CVPC::IterateTargetProjects(CUtlVector<projectIndex_t> &projectList,
         // auto iterate through all defined game conditionals, setting each in
         // turn this provides for building say client for all mod(s) that it can
         // support
-        for (int nTargetGame = 0; nTargetGame < m_Conditionals.Count();
+        for (intp nTargetGame = 0; nTargetGame < m_Conditionals.Count();
              nTargetGame++) {
           if (m_Conditionals[nTargetGame].type != CONDITIONAL_GAME ||
               !m_Conditionals[nTargetGame].m_bDefined) {
@@ -1562,7 +1564,7 @@ void CVPC::IterateTargetProjects(CUtlVector<projectIndex_t> &projectList,
           }
 
           // only one game condition is active during project generation
-          for (int k = 0; k < m_Conditionals.Count(); k++) {
+          for (intp k = 0; k < m_Conditionals.Count(); k++) {
             // unmark all game conditionals
             if (m_Conditionals[k].type == CONDITIONAL_GAME) {
               m_Conditionals[k].m_bGameConditionActive = false;
@@ -1584,8 +1586,7 @@ void CVPC::IterateTargetProjects(CUtlVector<projectIndex_t> &projectList,
 bool CVPC::BuildTargetProjects() {
   class CDefaultProjectIterator : public IProjectIterator {
    public:
-    virtual bool VisitProject(projectIndex_t iProject,
-                              const char *pScriptPath) {
+    virtual bool VisitProject(projectIndex_t, const char *pScriptPath) {
       Log_Msg(LOG_VPC, "\n");
 
       // check project's crc signature
@@ -1655,24 +1656,31 @@ void CVPC::FindProjectFromVCPROJ( const char *pScriptNameVCProj ) {
     char szProject[MAX_PATH];
     szProject[0] = '\0';
 
-    size_t bestLen = 0;
-    for (int i = 0; i < m_Projects.Count(); i++) {
-        if (V_stristr(pScriptNameVCProj, m_Projects[i].name.String())) {
-            if (bestLen < strlen(m_Projects[i].name.String())) {
-                bestLen = strlen(m_Projects[i].name.String());
-                strcpy(szProject, m_Projects[i].name.String());
-            }
-        }
+  size_t bestLen = 0;
+  for (intp i = 0; i < m_Projects.Count(); i++) {
+    if (V_stristr(pScriptNameVCProj, m_Projects[i].name.String())) {
+      if (bestLen < strlen(m_Projects[i].name.String())) {
+        bestLen = strlen(m_Projects[i].name.String());
+        strcpy(szProject, m_Projects[i].name.String());
+      }
     }
 
     if (bestLen == 0) {
         VPCError("Could not resolve '%s' to any known projects", pScriptNameVCProj);
     }
 
-    // skip past known project
-    char szBuffer[MAX_PATH];
-    V_StripExtension(pScriptNameVCProj + strlen(szProject), szBuffer,
-                    sizeof(szBuffer));
+  // re-build a commandline
+  int localArgc = 0;
+  char *localArgv[16];
+  char argBuffers[16][MAX_PATH];
+  for (size_t i = 0; i < V_ARRAYSIZE(localArgv); i++) {
+    localArgv[i] = argBuffers[i];
+  }
+  strcpy(localArgv[localArgc++], "vpc.exe");
+  sprintf(localArgv[localArgc++], "+%s", szProject);
+  for (int i = 0; i < numTokens; i++) {
+    sprintf(localArgv[localArgc++], "/%s", szTokens[i]);
+  }
 
     // each token is separated by '_'
     int numTokens = 0;
@@ -1733,7 +1741,7 @@ void CVPC::FindProjectFromVCPROJ( const char *pScriptNameVCProj ) {
 void CVPC::SetMacrosAndConditionals() {
   // Find the target platform.
   conditional_t *pPlatformConditional = NULL;
-  for (int i = 0; i < m_Conditionals.Count(); i++) {
+  for (intp i = 0; i < m_Conditionals.Count(); i++) {
     if (m_Conditionals[i].type == CONDITIONAL_PLATFORM &&
         m_Conditionals[i].m_bDefined) {
       pPlatformConditional = &m_Conditionals[i];
@@ -1742,7 +1750,7 @@ void CVPC::SetMacrosAndConditionals() {
   }
 
   // Only one platform is allowed to be defined.
-  for (int i = 0; i < m_Conditionals.Count(); i++) {
+  for (intp i = 0; i < m_Conditionals.Count(); i++) {
     if (&m_Conditionals[i] != pPlatformConditional &&
         m_Conditionals[i].type == CONDITIONAL_PLATFORM &&
         m_Conditionals[i].m_bDefined) {
@@ -1804,17 +1812,16 @@ void CVPC::SetMacrosAndConditionals() {
       !V_stricmp(cVPCPlatform.String(), "X360")) {
     // VS2010 is strictly win32/xbox360
     switch (m_eVSVersion) {
+      case k_EVSVersion_2026:
+        m_ExtraOptionsCRCString += "VS2026";
+        SetConditional("VS2026", true);
+
+        m_bUseVS2010FileFormat = true;
+        break;
+
       case k_EVSVersion_2022:
         m_ExtraOptionsCRCString += "VS2022";
         SetConditional("VS2022", true);
-
-        // temporarily allow VS2013 conditionals also as there are many. Will
-        // fix.
-        SetConditional("VS2015", true);
-
-        // temporarily allow VS2013 conditionals also as there are many. Will
-        // fix.
-        SetConditional("VS2013", true);
 
         m_bUseVS2010FileFormat = true;
         break;
@@ -1822,10 +1829,6 @@ void CVPC::SetMacrosAndConditionals() {
       case k_EVSVersion_2015:
         m_ExtraOptionsCRCString += "VS2015";
         SetConditional("VS2015", true);
-
-        // temporarily allow VS2013 conditionals also as there are many. Will
-        // fix.
-        SetConditional("VS2013", true);
 
         m_bUseVS2010FileFormat = true;
         break;
@@ -2041,8 +2044,8 @@ void CVPC::SetMacrosAndConditionals() {
 
   // Set VPCGAME macro based on target game
   if (m_bEnableVpcGameMacro) {
-    int nGameDefineIndex = -1;
-    for (int iOtherGameDefine = 0; iOtherGameDefine < m_Conditionals.Count();
+    intp nGameDefineIndex = -1;
+    for (intp iOtherGameDefine = 0; iOtherGameDefine < m_Conditionals.Count();
          ++iOtherGameDefine) {
       if (m_Conditionals[iOtherGameDefine].type == CONDITIONAL_GAME &&
           m_Conditionals[iOtherGameDefine].m_bDefined) {
@@ -2106,7 +2109,8 @@ bool CVPC::HasP4SLNCommand() { return HasCommandLineParameter("/p4sln"); }
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-bool CVPC::HandleP4SLN(IBaseSolutionGenerator *pSolutionGenerator) {
+bool CVPC::HandleP4SLN(
+    [[maybe_unused]] IBaseSolutionGenerator *pSolutionGenerator) {
 #if defined(WIN32) && !defined(NO_PERFORCE)
   // If they want to generate a solution based on a Perforce changelist, adjust
   // m_targetProjects and set it up like /mksln had been passed in.
@@ -2232,7 +2236,9 @@ void CVPC::SetupGenerators() {
   {
       // spew what we are generating
       const char *pchLogLine = "Generating for Visual Studio 2005.\n";
-      if (m_eVSVersion == k_EVSVersion_2022)
+      if (m_eVSVersion == k_EVSVersion_2026)
+        pchLogLine = "Generating for Visual Studio 2026.\n";
+      else if (m_eVSVersion == k_EVSVersion_2022)
         pchLogLine = "Generating for Visual Studio 2022.\n";
       else if (m_eVSVersion == k_EVSVersion_2015)
         pchLogLine = "Generating for Visual Studio 2015.\n";

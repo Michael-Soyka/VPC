@@ -31,9 +31,9 @@
 #include "tier0/memdbgon.h"
 
 #if defined(ENABLE_RUNTIME_STACK_TRANSLATION)
-#pragma optimize("g", \
-                 off)  // variable argument functions seem to screw up stack
-                       // walking unless this optimization is disabled
+// variable argument functions seem to screw up stack
+// walking unless this optimization is disabled
+#pragma optimize("g", off)
 #endif
 
 DEFINE_LOGGING_CHANNEL_NO_TAGS(LOG_LOADING, "LOADING");
@@ -74,7 +74,7 @@ void _Error_AlwaysSpewCallStack_Length(int iMaxCallStackLength) {
   s_iErrorMaxCallStackLength = iMaxCallStackLength;
 }
 
-#else  //#if defined( ENABLE_RUNTIME_STACK_TRANSLATION )
+#else  // #if defined( ENABLE_RUNTIME_STACK_TRANSLATION )
 
 #define AutomaticWarningCallStackLength() 0
 #define AutomaticErrorCallStackLength() 0
@@ -87,7 +87,7 @@ void _Error_AlwaysSpewCallStack_Enable(bool bEnable) {}
 
 void _Error_AlwaysSpewCallStack_Length(int iMaxCallStackLength) {}
 
-#endif  //#if defined( ENABLE_RUNTIME_STACK_TRANSLATION )
+#endif  // #if defined( ENABLE_RUNTIME_STACK_TRANSLATION )
 
 void _ExitOnFatalAssert(const tchar *pFile, int line) {
   Log_Msg(LOG_ASSERT,
@@ -106,7 +106,8 @@ void _ExitOnFatalAssert(const tchar *pFile, int line) {
 //-----------------------------------------------------------------------------
 // Templates to assist in validating pointers:
 //-----------------------------------------------------------------------------
-PLATFORM_INTERFACE void _AssertValidReadPtr(void *ptr, int count /* = 1*/) {
+PLATFORM_INTERFACE void _AssertValidReadPtr(
+    [[maybe_unused]] void *ptr, [[maybe_unused]] int count /* = 1*/) {
 #if defined(_WIN32) && !defined(_X360)
   Assert(!IsBadReadPtr(ptr, count));
 #else
@@ -114,7 +115,8 @@ PLATFORM_INTERFACE void _AssertValidReadPtr(void *ptr, int count /* = 1*/) {
 #endif
 }
 
-PLATFORM_INTERFACE void _AssertValidWritePtr(void *ptr, int count /* = 1*/) {
+PLATFORM_INTERFACE void _AssertValidWritePtr(
+    [[maybe_unused]] void *ptr, [[maybe_unused]] int count /* = 1*/) {
 #if defined(_WIN32) && !defined(_X360)
   Assert(!IsBadWritePtr(ptr, count));
 #else
@@ -122,8 +124,8 @@ PLATFORM_INTERFACE void _AssertValidWritePtr(void *ptr, int count /* = 1*/) {
 #endif
 }
 
-PLATFORM_INTERFACE void _AssertValidReadWritePtr(void *ptr,
-                                                 int count /* = 1*/) {
+PLATFORM_INTERFACE void _AssertValidReadWritePtr(
+    [[maybe_unused]] void *ptr, [[maybe_unused]] int count /* = 1*/) {
 #if defined(_WIN32) && !defined(_X360)
   Assert(!(IsBadWritePtr(ptr, count) || IsBadReadPtr(ptr, count)));
 #else
@@ -131,8 +133,8 @@ PLATFORM_INTERFACE void _AssertValidReadWritePtr(void *ptr,
 #endif
 }
 
-PLATFORM_INTERFACE void _AssertValidStringPtr(const tchar *ptr,
-                                              int maxchar /* = 0xFFFFFF */) {
+PLATFORM_INTERFACE void _AssertValidStringPtr([[maybe_unused]] const tchar *ptr,
+    [[maybe_unused]] int maxchar /* = 0xFFFFFF */) {
 #if defined(_WIN32) && !defined(_X360)
 #ifdef TCHAR_IS_CHAR
   Assert(!IsBadStringPtr(ptr, maxchar));
@@ -304,7 +306,7 @@ void *Plat_SimpleLog(const tchar *file, int line) {
   FILE *f = _tfopen(_T("simple.log"), _T("at+"));
   if (f) {
     _ftprintf(f, _T("%s:%i\n"), file, line);
-    fclose(f);  
+    fclose(f);
   }
 
   return NULL;
@@ -422,10 +424,10 @@ void CHardwareBreakPoint::SetBits(DWORD_PTR &dw, int lowBit, int bits,
 
 DWORD WINAPI CHardwareBreakPoint::ThreadProc(LPVOID lpParameter) {
   CHardwareBreakPoint *h = reinterpret_cast<CHardwareBreakPoint *>(lpParameter);
-  SuspendThread(h->m_hThread); //-V720
+  SuspendThread(h->m_hThread);  //-V720
 
   // Get current context
-  CONTEXT ct = {0};
+  CONTEXT ct = {};
   ct.ContextFlags = CONTEXT_DEBUG_REGISTERS;
   GetThreadContext(h->m_hThread, &ct);
 

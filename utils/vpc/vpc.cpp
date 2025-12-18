@@ -1647,14 +1647,14 @@ bool CVPC::BuildTargetProjects() {
 //	Find the project that corresponds to the specified vcproj and setup
 //  to build that project.
 //-----------------------------------------------------------------------------
-void CVPC::FindProjectFromVCPROJ( const char *pScriptNameVCProj ) {
-    // caller is specifying the output vcproj, i.e. via tool shortcut from within
-    // MSDEV to re-gen use the vpc standardized output vcproj name to determine
-    // re-gen parameters mod and platform will be separated by '_' after the
-    // project name resolve to correct project, best will be longest match, due to
-    // project names like foo_? and foo_bar_?
-    char szProject[MAX_PATH];
-    szProject[0] = '\0';
+void CVPC::FindProjectFromVCPROJ(const char *pScriptNameVCProj) {
+  // caller is specifying the output vcproj, i.e. via tool shortcut from within
+  // MSDEV to re-gen use the vpc standardized output vcproj name to determine
+  // re-gen parameters mod and platform will be separated by '_' after the
+  // project name resolve to correct project, best will be longest match, due to
+  // project names like foo_? and foo_bar_?
+  char szProject[MAX_PATH];
+  szProject[0] = '\0';
 
   size_t bestLen = 0;
   for (intp i = 0; i < m_Projects.Count(); i++) {
@@ -1664,10 +1664,39 @@ void CVPC::FindProjectFromVCPROJ( const char *pScriptNameVCProj ) {
         strcpy(szProject, m_Projects[i].name.String());
       }
     }
+  }
 
-    if (bestLen == 0) {
-        VPCError("Could not resolve '%s' to any known projects", pScriptNameVCProj);
+  if (bestLen == 0) {
+    VPCError("Could not resolve '%s' to any known projects", pScriptNameVCProj);
+  }
+
+  // skip past known project
+  char szBuffer[MAX_PATH];
+  V_StripExtension(pScriptNameVCProj + strlen(szProject), szBuffer,
+                   sizeof(szBuffer));
+
+  // each token is separated by '_'
+  int numTokens = 0;
+  char *pToken = szBuffer;
+  char *pStart = pToken;
+  char szTokens[2][MAX_PATH];
+  while (numTokens < 2) {
+    if (pStart[0] == '_') {
+      pStart++;
+      pToken = strchr(pStart, '_');
+      if (!pToken) {
+        strcpy(szTokens[numTokens++], pStart);
+        break;
+      } else {
+        strncpy(szTokens[numTokens], pStart, pToken - pStart);
+        szTokens[numTokens][pToken - pStart] = '\0';
+        numTokens++;
+        pStart = pToken;
+      }
+    } else {
+      break;
     }
+  }
 
   // re-build a commandline
   int localArgc = 0;
@@ -1682,49 +1711,7 @@ void CVPC::FindProjectFromVCPROJ( const char *pScriptNameVCProj ) {
     sprintf(localArgv[localArgc++], "/%s", szTokens[i]);
   }
 
-    // each token is separated by '_'
-    int numTokens = 0;
-    char *pToken = szBuffer;
-    char *pStart = pToken;
-    char szTokens[2][MAX_PATH];
-    while (numTokens < 2) {
-        if (pStart[0] == '_') {
-            pStart++;
-            pToken = strchr(pStart, '_');
-            if (!pToken) {
-            strcpy(szTokens[numTokens++], pStart);
-            break;
-            } else {
-            strncpy(szTokens[numTokens], pStart, pToken - pStart);
-            szTokens[numTokens][pToken - pStart] = '\0';
-            numTokens++;
-            pStart = pToken;
-            }
-        } else {
-            break;
-        }
-    }
-
-    // re-build a commandline
-    int localArgc = 0;
-    char *localArgv[16];
-    char argBuffers[16][MAX_PATH];
-    for (int i = 0; i < V_ARRAYSIZE(localArgv); i++) {
-        localArgv[i] = argBuffers[i];
-    }
-
-    #ifdef OTM
-        strcpy( localArgv[ localArgc++ ], "mpc.exe" );
-    #else
-        strcpy( localArgv[ localArgc++ ], "vpc.exe" );
-    #endif
-
-    sprintf( localArgv[ localArgc++ ], "+%s", szProject );
-    for ( int i = 0; i < numTokens; i++ ) {
-        sprintf( localArgv[ localArgc++ ], "/%s", szTokens[ i ] );
-    }
-
-    ParseBuildOptions( localArgc, const_cast< const char ** >( localArgv ) );
+  ParseBuildOptions(localArgc, const_cast<const char **>(localArgv));
 }
 
 //-----------------------------------------------------------------------------

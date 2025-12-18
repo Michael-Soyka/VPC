@@ -1,7 +1,7 @@
 // Copyright Valve Corporation, All rights reserved.
 
 #ifndef VPC_VPC_H_
-#define VPC_VPC_H_
+    #define VPC_VPC_H_
 
 #include "tier1/utlstring.h"
 #include "tier1/utlrbtree.h"
@@ -20,9 +20,9 @@
 #include "tier0/logging.h"
 
 #ifdef STEAM
-#include "vstdlib/strtools.h"
+    #include "vstdlib/strtools.h"
 #else
-#include "tier1/strtools.h"
+    #include "tier1/strtools.h"
 #endif
 
 #include "sys_utils.h"
@@ -32,7 +32,7 @@
 DECLARE_LOGGING_CHANNEL(LOG_VPC);
 
 #ifdef WIN32
-#include <io.h>
+    #include <io.h>
 #endif  // WIN32
 
 struct KeywordName_t {
@@ -139,14 +139,12 @@ struct IProjectIterator {
 
 #include "ibasesolutiongenerator.h"
 #include "ibaseprojectgenerator.h"
+
 #if defined(WIN32)
-#include "baseprojectdatacollector.h"
-#include "projectgenerator_vcproj.h"
-#include "projectgenerator_win32.h"
-#include "projectgenerator_win32_2010.h"
-#include "projectgenerator_xbox360.h"
-#include "projectgenerator_xbox360_2010.h"
-#include "projectgenerator_ps3.h"
+    #include "baseprojectdatacollector.h"
+    #include "projectgenerator_vcproj.h"
+    #include "projectgenerator_win32.h"
+    #include "projectgenerator_win32_2010.h"
 #endif
 
 enum EVSVersion {

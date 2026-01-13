@@ -36,7 +36,7 @@ set(SE_VPC_ROOT_DIR "${CMAKE_SOURCE_DIR}" CACHE STRING
   "Directory root of the vpc project.")
 
 ## Package information.
-set(PACKAGE_NAME   "vpc")
+set(PACKAGE_NAME   "mpc")
 
 # C++ standard can be overridden when this is used as a sub-project.
 if(NOT CMAKE_CXX_STANDARD)

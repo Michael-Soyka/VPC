@@ -158,7 +158,7 @@ void Plat_GetLocalTime(struct tm *pNow) {
 void Plat_ConvertToLocalTime(uint64 nTime, struct tm *pNow) {
   // Since localtime() returns a global, we need to protect against multiple
   // threads stomping it.
-  g_LocalTimeMutex.Lock();
+  AUTO_LOCK(g_LocalTimeMutex);
 
   time_t ltime = (time_t)nTime;
   tm *pTime = localtime(&ltime);
@@ -166,12 +166,10 @@ void Plat_ConvertToLocalTime(uint64 nTime, struct tm *pNow) {
     *pNow = *pTime;
   else
     memset(pNow, 0, sizeof(*pNow));
-
-  g_LocalTimeMutex.Unlock();
 }
 
 void Plat_GetTimeString(struct tm *pTime, char *pOut, int nMaxBytes) {
-  g_LocalTimeMutex.Lock();
+  AUTO_LOCK(g_LocalTimeMutex);
 
   char *pStr = asctime(pTime);
   if (pStr) {
@@ -181,8 +179,6 @@ void Plat_GetTimeString(struct tm *pTime, char *pOut, int nMaxBytes) {
     // asctime failed.
     pOut[0] = '\0';
   }
-
-  g_LocalTimeMutex.Unlock();
 }
 
 void Plat_gmtime(uint64 nTime, struct tm *pTime) {
@@ -423,56 +419,46 @@ Plat_AllocErrorFn g_AllocError = Plat_DefaultAllocErrorFn;
 
 #if !defined(_X360) && !defined(_PS3)
 
-CRITICAL_SECTION g_AllocCS;
-class CAllocCSInit {
- public:
-  CAllocCSInit() { InitializeCriticalSection(&g_AllocCS); }
-} g_AllocCSInit;
-
 PLATFORM_INTERFACE void *Plat_Alloc(unsigned long size) {
-  EnterCriticalSection(&g_AllocCS);
 #if !defined(STEAM) && !defined(NO_MALLOC_OVERRIDE)
   void *pRet = MemAlloc_Alloc(size);
 #else
   void *pRet = malloc(size);
 #endif
-  LeaveCriticalSection(&g_AllocCS);
+
   if (pRet) {
     return pRet;
-  } else {
-#if !defined(STEAM) && !defined(NO_MALLOC_OVERRIDE)
-    g_AllocError(size);
-#endif
-    return 0;
   }
+  
+#if !defined(STEAM) && !defined(NO_MALLOC_OVERRIDE)
+  g_AllocError(size);
+#endif
+  return 0;
 }
 
 PLATFORM_INTERFACE void *Plat_Realloc(void *ptr, unsigned long size) {
-  EnterCriticalSection(&g_AllocCS);
 #if !defined(STEAM) && !defined(NO_MALLOC_OVERRIDE)
   void *pRet = g_pMemAlloc()->Realloc(ptr, size);
 #else
   void *pRet = realloc(ptr, size);
 #endif
-  LeaveCriticalSection(&g_AllocCS);
+
   if (pRet) {
     return pRet;
-  } else {
+  } 
+  
 #if !defined(STEAM) && !defined(NO_MALLOC_OVERRIDE)
-    g_AllocError(size);
+  g_AllocError(size);
 #endif
-    return 0;
-  }
+  return 0;
 }
 
 PLATFORM_INTERFACE void Plat_Free(void *ptr) {
-  EnterCriticalSection(&g_AllocCS);
 #if !defined(STEAM) && !defined(NO_MALLOC_OVERRIDE)
   g_pMemAlloc()->Free(ptr);
 #else
   free(ptr);
 #endif
-  LeaveCriticalSection(&g_AllocCS);
 }
 
 #if !defined(STEAM) && !defined(NO_MALLOC_OVERRIDE)
